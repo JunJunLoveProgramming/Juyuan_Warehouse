@@ -23,7 +23,7 @@ def feedback(rt):
 class CodeEditorApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("聚源仓-Version1.0.0")
+        self.root.title("聚源仓-Version1.0.0开源版本")
         self.root.geometry("1440x900")
         self.root.iconbitmap("./Resources/app.ico")
         
@@ -408,14 +408,25 @@ class CodeEditorApp:
                 if self.console_process.poll() is None:
                     self.console_process.kill()
             
+            # 设置启动参数来隐藏控制台窗口
+            startupinfo = None
+            creationflags = 0
+            if sys.platform == 'win32':
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                startupinfo.wShowWindow = 0  # SW_HIDE
+                creationflags = subprocess.CREATE_NO_WINDOW
+            
             # 使用新的运行方式
             self.console_process = subprocess.Popen(
-                [sys.executable, self.current_file],  # 直接运行Python文件
+                [sys.executable, "-u", self.current_file],  # -u 用于无缓冲输出
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                bufsize=1
+                bufsize=1,
+                startupinfo=startupinfo,
+                creationflags=creationflags
             )
             
             # 启动线程读取输出
@@ -437,7 +448,7 @@ class CodeEditorApp:
         try:
             import ai_compiler
             # 设置API密钥（你需要在某个地方设置这个）
-            ai_compiler.set_api_key("sk-da4d67f10f7d407599e333ad99994758")
+            ai_compiler.set_api_key("你的Deepseek API")
             
             # 显示等待提示
             self.console_text.insert(tk.END, "\n🤖 AI正在分析代码...\n")
