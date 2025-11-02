@@ -6,10 +6,17 @@
 
 Python聚源仓项目，是一款AI智能编译器，目前只支持Python，制作团队基本都是学生，具有AI分析代码，AI优化代码，AI上下文理解等功能，完全免费，完全免费开源
 
+## 版本日志
+【版本号】1.0.1
+【更新日志】第一个版本失败，修复了部分bug，但是也产生了新的bug
+
+## 主程序
+主程序位于Maink.py脚本里，默认不设置Deepseek API,请翻到下面设置Deepseek API查看详情
+
 
 ## 设置DeepSeek API
 
-如果你要使用已经购买的Deepseek的API，请打开项目中的Maink.py文件，翻到440行，按照提示更换你的Deepseek API即可
+如果你要使用已经购买的Deepseek的API，请打开项目中的Maink.py文件，翻到722行，按照提示更换你的Deepseek API即可
 
 ```bash
 ai_compiler.set_api_key("你的Deepseek API")
