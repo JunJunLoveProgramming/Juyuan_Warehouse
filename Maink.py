@@ -43,62 +43,57 @@ def feedback(rt):
 class CodeEditorApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("聚源仓-Version1.0.1")
+        self.root.title("聚源仓-Version1.0.2")
         self.root.geometry("1440x900")
         if os.path.exists("./Resources/app.ico"):
             self.root.iconbitmap("./Resources/app.ico")
         
+        # 设置API密钥
+        self.setup_api_key()
+        
         # 比例系数，用于等比例缩放
         self.scale_ratio = 1.0
-        
+    
         self.toolbar_items = [
             ("新建", './Resources/new.png', self.new_file),
             ("打开", './Resources/open.png', self.open_file),
             ("保存", './Resources/save.png', self.save_file),
-            ("运行", './Resources/run.png', self.run_code),
+            ("运行", './Resources/run.png', self.run_code_in_terminal),
             ("停止", './Resources/stop.png', self.stop_code), 
-            ("AI分析", './Resources/ai.png', self.analyze_syntax),
-            ("解释代码", './Resources/ai.png', self.explain_code),
-            ("优化代码", './Resources/ai.png', self.optimize_code),
-            ("打开系统终端", './Resources/run.png', self.open_system_terminal),  # 新增
+            ("AI助手", './Resources/ai.png', self.open_chat),
+            ("打开系统终端", './Resources/run.png', self.open_system_terminal),
             ("关于", './Resources/info.png', self.show_about),
         ]
         
         # 当前打开的文件路径
         self.current_file = None
         self.console_process = None
-        self.console_queue = queue.Queue(65535)
-        self.error_queue = queue.Queue()
-        self.console_input = ""
         self.running = [False]
         
-        # 终端相关属性
-        self.terminal_process = None
-        self.terminal_queue = queue.Queue()
-        self.terminal_error_queue = queue.Queue()
-        self.terminal_running = False
-        self.terminal_mode = False  # 标记是否在终端模式
+        # 聊天相关属性
+        self.chat_history = []
         
         self.setup_ui()
-        self.setup_console()
         
         self.root.bind("<Configure>", self.on_resize)
         
-        # 设置控制台文本标签样式
-        styles = [
-            ['Error', {'foreground': 'red', 'background': 'white'}],
-            ['Dark', {'foreground': 'yellow', 'background': 'black'}],
-            ['Input', {'foreground': 'green', 'background': 'white'}],
-            ['Terminal', {'foreground': 'cyan', 'background': 'black'}]
-        ]
-        for k, w in styles:
-            self.console_text.tag_configure(k, **w)
-        
-        # 启动终端模式
-        self.start_terminal_mode()
-        
-        # 使用after方法定期处理控制台输出，避免阻塞主线程
-        self.root.after(100, self.process_console_io)
+        # 初始时扫描当前目录
+        self.project_root = os.getcwd()
+        self.populate_tree(self.project_root)
+
+    def setup_api_key(self):
+        """设置DeepSeek API密钥"""
+        try:
+            import ai_compiler
+            # 在这里设置你的API密钥
+            api_key = "你的Deepseek API"
+            ai_compiler.set_api_key(api_key)
+            print("API密钥设置成功")
+        except ImportError as e:
+            print(f"导入ai_compiler失败: {e}")
+        except Exception as e:
+            print(f"设置API密钥失败: {e}")
+
 
     def setup_ui(self):
         # 顶部工具栏
@@ -146,10 +141,6 @@ class CodeEditorApp:
         # 绑定双击事件
         self.tree.bind("<Double-1>", self.on_tree_double_click)
         
-        # 初始时扫描当前目录
-        self.project_root = os.getcwd()
-        self.populate_tree(self.project_root)
-        
         # 右侧代码编辑区域
         self.edit_frame = ttk.Frame(self.main_container)
         self.edit_frame.pack(fill=tk.BOTH, expand=True, side=tk.RIGHT)
@@ -157,298 +148,366 @@ class CodeEditorApp:
         self.code_text = scrolledtext.ScrolledText(self.edit_frame, wrap=tk.WORD, font=("Consolas", 12))
         self.code_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
-        # 底部控制台
-        self.console_frame = ttk.Frame(self.root, height=200)
-        self.console_frame.pack(fill=tk.BOTH, side=tk.BOTTOM)
+        # 底部信息显示区域（不再是交互式终端）
+        self.info_frame = ttk.Frame(self.root, height=150)
+        self.info_frame.pack(fill=tk.BOTH, side=tk.BOTTOM)
         
-        console_header = ttk.Frame(self.console_frame)
-        console_header.pack(fill=tk.X, padx=5, pady=5)
-        tk.Label(console_header, text="Python终端", font=('Consolas', 13)).pack(side=tk.LEFT)
+        info_header = ttk.Frame(self.info_frame)
+        info_header.pack(fill=tk.X, padx=5, pady=5)
+        tk.Label(info_header, text="运行信息", font=('Consolas', 13)).pack(side=tk.LEFT)
         
-        # 添加终端控制按钮
-        terminal_buttons = ttk.Frame(console_header)
-        terminal_buttons.pack(side=tk.RIGHT)
-        ttk.Button(terminal_buttons, text='清空终端', command=self.clear_terminal).pack(side=tk.LEFT, padx=2)
-        ttk.Button(terminal_buttons, text='重启终端', command=self.restart_terminal).pack(side=tk.LEFT, padx=2)
-        ttk.Button(terminal_buttons, text='切换模式', command=self.toggle_mode).pack(side=tk.LEFT, padx=2)
+        # 添加清空按钮
+        ttk.Button(info_header, text='清空信息', command=self.clear_info).pack(side=tk.RIGHT, padx=2)
         
-        self.console_text = scrolledtext.ScrolledText(self.console_frame, wrap=tk.WORD, font=("Consolas", 12))
-        self.console_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
-        # 绑定键盘事件
-        self.console_text.bind("<KeyPress>", self.on_console_key_press)
-        self.console_text.bind("<Return>", self.on_console_return)
-        self.console_text.bind("<BackSpace>", self.on_console_backspace)
-        
-        # 添加控制台输入提示
-        self.console_text.insert(tk.END, "Python 3 Terminal >>> ", 'Terminal')
-        self.console_text.mark_set("input_start", "end-1c")
-        self.console_text.mark_gravity("input_start", "left")
-        self.console_text.see(tk.END)
+        self.info_text = scrolledtext.ScrolledText(self.info_frame, wrap=tk.WORD, font=("Consolas", 11))
+        self.info_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        self.info_text.config(state=tk.DISABLED)  # 设置为只读
 
-    def setup_console(self):
-        """初始化控制台设置"""
-        pass
+    def clear_info(self):
+        """清空信息显示区域"""
+        self.info_text.config(state=tk.NORMAL)
+        self.info_text.delete(1.0, tk.END)
+        self.info_text.config(state=tk.DISABLED)
 
-    def start_terminal_mode(self):
-        """启动Python终端模式 - 简化版本"""
+    def add_info_message(self, message, message_type="info"):
+        """添加信息到信息显示区域"""
+        self.info_text.config(state=tk.NORMAL)
+        
+        if message_type == "error":
+            self.info_text.insert(tk.END, f"❌ {message}\n", "error")
+            self.info_text.tag_configure("error", foreground="red")
+        elif message_type == "success":
+            self.info_text.insert(tk.END, f"✅ {message}\n", "success")
+            self.info_text.tag_configure("success", foreground="green")
+        elif message_type == "warning":
+            self.info_text.insert(tk.END, f"⚠️ {message}\n", "warning")
+            self.info_text.tag_configure("warning", foreground="orange")
+        else:
+            self.info_text.insert(tk.END, f"ℹ️ {message}\n")
+        
+        self.info_text.config(state=tk.DISABLED)
+        self.info_text.see(tk.END)
+
+    def run_code_in_terminal(self):
+        """在外部系统终端中运行代码"""
+        if not self.current_file:
+            # 如果没有保存的文件，先保存
+            if not self.save_file():
+                messagebox.showwarning("警告", "请先保存文件")
+                return
+        
         try:
-            # 停止之前的终端进程
-            if self.terminal_process and self.terminal_process.poll() is None:
-                self.terminal_process.terminate()
+            # 确保文件已保存
+            self.save_file()
             
-            # 设置启动参数
-            startupinfo = None
-            creationflags = 0
+            # 获取文件所在目录
+            file_dir = os.path.dirname(self.current_file)
+            file_name = os.path.basename(self.current_file)
+            
+            self.add_info_message(f"正在在系统终端中运行: {file_name}")
+            
             if sys.platform == 'win32':
-                startupinfo = subprocess.STARTUPINFO()
-                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-                startupinfo.wShowWindow = 0  # SW_HIDE
-                creationflags = subprocess.CREATE_NO_WINDOW
-            
-            # 启动Python交互式终端 - 使用文本模式
-            self.terminal_process = subprocess.Popen(
-                [sys.executable, "-i", "-u"],
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,  # 使用文本模式
-                bufsize=1,  # 行缓冲
-                encoding='utf-8',  # 明确指定编码
-                errors='replace',  # 替换无法解码的字符
-                startupinfo=startupinfo,
-                creationflags=creationflags
-            )
-            
-            self.terminal_running = True
-            self.terminal_mode = True
-            
-            # 启动线程读取终端输出
-            threading.Thread(target=self.read_terminal_output_simple, daemon=True).start()
-            
-            # 在控制台显示提示
-            self.console_text.insert(tk.END, "\nPython交互式终端已启动\n", 'Terminal')
-            self.console_text.see(tk.END)
-            
-        except Exception as e:
-            self.console_text.insert(tk.END, f"\n启动终端失败: {str(e)}\n", 'Error')
-            self.console_text.see(tk.END)
-
-    def read_terminal_output_simple(self):
-        """读取终端输出 - 简单可靠的方法"""
-        while self.terminal_running:
-            try:
-                # 检查进程是否结束
-                if self.terminal_process.poll() is not None:
-                    self.terminal_running = False
-                    break
-                
-                # 读取标准输出 - 使用文本模式
-                output = self.terminal_process.stdout.readline()
-                if output:
-                    self.terminal_queue.put(output)
-                
-                # 读取错误输出
-                error = self.terminal_process.stderr.readline()
-                if error:
-                    self.terminal_error_queue.put(error)
-                        
-            except Exception as e:
-                # 忽略常见的IO错误，这些通常发生在进程结束时
-                if "I/O operation on closed file" not in str(e):
-                    print(f"读取终端输出错误: {e}")
-                break
-
-    def on_console_key_press(self, event):
-        """处理控制台键盘输入"""
-        # 如果光标在输入区域之前，移动到输入区域
-        if self.console_text.compare(tk.INSERT, "<", "input_start"):
-            self.console_text.mark_set(tk.INSERT, "end-1c")
-            return "break"
-        
-        # 允许正常输入
-        return None
-
-    def on_console_backspace(self, event):
-        """处理控制台退格键"""
-        # 如果光标在输入区域开始位置，阻止退格
-        if self.console_text.compare(tk.INSERT, "==", "input_start"):
-            return "break"
-        return None
-
-    def on_console_return(self, event):
-        """处理控制台回车键 - 简化版本"""
-        # 获取输入内容
-        input_line = self.console_text.get("input_start", "end-1c")
-        
-        # 如果是空行，只添加新提示符
-        if not input_line.strip():
-            prompt = ">>> " if self.terminal_mode else ">>> "
-            self.console_text.insert(tk.END, f"\n{prompt}", 'Terminal' if self.terminal_mode else 'Dark')
-            self.console_text.mark_set("input_start", "end-1c")
-            self.console_text.mark_gravity("input_start", "left")
-            self.console_text.see(tk.END)
-            return "break"
-        
-        # 确保以换行符结束
-        if not input_line.endswith('\n'):
-            input_line += '\n'
-        
-        # 根据当前模式处理输入
-        if self.terminal_mode and self.terminal_running:
-            # 终端模式：发送到Python交互式终端
-            try:
-                self.terminal_process.stdin.write(input_line)
-                self.terminal_process.stdin.flush()
-                
-                # 添加新行和提示符
-                prompt = "... " if input_line.rstrip().endswith(":") else ">>> "
-                self.console_text.insert(tk.END, f"\n{prompt}", 'Terminal')
-                self.console_text.mark_set("input_start", "end-1c")
-                self.console_text.mark_gravity("input_start", "left")
-                self.console_text.see(tk.END)
-                
-            except Exception as e:
-                self.console_text.insert(tk.END, f"\n终端输入错误: {str(e)}\n>>> ", 'Error')
-                self.console_text.mark_set("input_start", "end-1c")
-                self.console_text.mark_gravity("input_start", "left")
-                self.console_text.see(tk.END)
-                
-        elif self.console_process and self.console_process.poll() is None:
-            # 运行模式：发送到正在运行的程序
-            try:
-                self.console_process.stdin.write(input_line)
-                self.console_process.stdin.flush()
-                
-                # 添加新行和提示符
-                self.console_text.insert(tk.END, "\n>>> ")
-                self.console_text.mark_set("input_start", "end-1c")
-                self.console_text.mark_gravity("input_start", "left")
-                self.console_text.see(tk.END)
-                
-            except Exception as e:
-                self.console_text.insert(tk.END, f"\n输入错误: {str(e)}\n>>> ", 'Error')
-                self.console_text.mark_set("input_start", "end-1c")
-                self.console_text.mark_gravity("input_start", "left")
-                self.console_text.see(tk.END)
-        else:
-            # 无模式：直接在控制台中执行Python代码
-            try:
-                # 尝试执行单行代码
-                result = eval(input_line)
-                self.console_text.insert(tk.END, f"\n{result}\n>>> ")
-            except:
+                # Windows系统：使用cmd或PowerShell
                 try:
-                    # 尝试执行多行代码
-                    exec(input_line)
-                    self.console_text.insert(tk.END, "\n>>> ")
+                    # 尝试使用PowerShell
+                    cmd = f'start powershell -NoExit -Command "cd \'{file_dir}\'; python \'{file_name}\'; echo \'程序执行完毕，按任意键退出...\'; pause"'
+                    subprocess.Popen(cmd, shell=True)
+                    self.add_info_message("已在PowerShell中启动程序", "success")
                 except Exception as e:
-                    self.console_text.insert(tk.END, f"\n错误: {str(e)}\n>>> ", 'Error')
-            
-            self.console_text.mark_set("input_start", "end-1c")
-            self.console_text.mark_gravity("input_start", "left")
-            self.console_text.see(tk.END)
-        
-        return "break"
-        
-    def process_console_io(self):
-        """处理控制台输入输出的定期检查"""
-        try:
-            # 处理终端输出
-            while True:
+                    # 如果PowerShell失败，尝试使用cmd
+                    try:
+                        cmd = f'start cmd /K "cd /d \"{file_dir}\" && python \"{file_name}\" && pause"'
+                        subprocess.Popen(cmd, shell=True)
+                        self.add_info_message("已在命令提示符中启动程序", "success")
+                    except Exception as e2:
+                        self.add_info_message(f"启动终端失败: {str(e2)}", "error")
+            else:
+                # 非Windows系统：使用系统默认终端
                 try:
-                    output = self.terminal_queue.get_nowait()
-                    # 在输出前确保光标位置正确
-                    self.console_text.insert(tk.END, output, 'Terminal')
-                    
-                    # 更新输入起始位置
-                    self.console_text.mark_set("input_start", "end-1c")
-                    self.console_text.mark_gravity("input_start", "left")
-                    
-                    self.console_text.see(tk.END)
-                except queue.Empty:
-                    break
-            
-            # 处理终端错误输出
-            while True:
-                try:
-                    error = self.terminal_error_queue.get_nowait()
-                    self.console_text.insert(tk.END, error, 'Error')
-                    
-                    # 更新输入起始位置
-                    self.console_text.mark_set("input_start", "end-1c")
-                    self.console_text.mark_gravity("input_start", "left")
-                    
-                    self.console_text.see(tk.END)
-                except queue.Empty:
-                    break
-            
-            # 处理程序输出
-            while True:
-                try:
-                    output = self.console_queue.get_nowait()
-                    self.console_text.insert(tk.END, output, 'Dark')
-                    
-                    # 更新输入起始位置
-                    self.console_text.mark_set("input_start", "end-1c")
-                    self.console_text.mark_gravity("input_start", "left")
-                    
-                    self.console_text.see(tk.END)
-                except queue.Empty:
-                    break
-            
-            # 处理程序错误输出
-            while True:
-                try:
-                    error = self.error_queue.get_nowait()
-                    self.console_text.insert(tk.END, error, 'Error')
-                    
-                    # 更新输入起始位置
-                    self.console_text.mark_set("input_start", "end-1c")
-                    self.console_text.mark_gravity("input_start", "left")
-                    
-                    self.console_text.see(tk.END)
-                except queue.Empty:
-                    break
+                    if sys.platform == 'darwin':  # macOS
+                        applescript = f'''
+                        tell application "Terminal"
+                            activate
+                            do script "cd '{file_dir}' && python3 '{file_name}' && echo '程序执行完毕，按任意键退出...' && read"
+                        end tell
+                        '''
+                        subprocess.Popen(['osascript', '-e', applescript])
+                    else:  # Linux
+                        terminals = [
+                            ('gnome-terminal', ['--', 'bash', '-c', f'cd "{file_dir}" && python3 "{file_name}" && echo "程序执行完毕，按任意键退出..." && read']),
+                            ('konsole', ['-e', 'bash', '-c', f'cd "{file_dir}" && python3 "{file_name}" && echo "程序执行完毕，按任意键退出..." && read']),
+                            ('xfce4-terminal', ['-x', 'bash', '-c', f'cd "{file_dir}" && python3 "{file_name}" && echo "程序执行完毕，按任意键退出..." && read']),
+                            ('xterm', ['-e', f'bash -c "cd \\"{file_dir}\\" && python3 \\"{file_name}\\" && echo \\"程序执行完毕，按任意键退出...\\" && read"'])
+                        ]
+                        
+                        terminal_found = False
+                        for terminal, args in terminals:
+                            try:
+                                subprocess.Popen([terminal] + args)
+                                terminal_found = True
+                                self.add_info_message(f"已在{terminal}中启动程序", "success")
+                                break
+                            except FileNotFoundError:
+                                continue
+                        
+                        if not terminal_found:
+                            # 使用系统默认终端
+                            subprocess.Popen(['x-terminal-emulator', '-e', f'bash -c "cd \\"{file_dir}\\" && python3 \\"{file_name}\\" && echo \\"程序执行完毕，按任意键退出...\\" && read"'])
+                            self.add_info_message("已在系统默认终端中启动程序", "success")
+                
+                except Exception as e:
+                    self.add_info_message(f"启动终端失败: {str(e)}", "error")
                     
         except Exception as e:
-            print(f"处理控制台IO错误: {e}")
+            self.add_info_message(f"运行失败: {str(e)}", "error")
+
+    def open_chat(self):
+        """打开AI聊天窗口"""
+        chat_window = tk.Toplevel(self.root)
+        chat_window.title("AI智能编程助手")
+        chat_window.geometry("700x600")
+        chat_window.transient(self.root)
         
-        # 继续定期检查
-        self.root.after(50, self.process_console_io)
-
-    def clear_terminal(self):
-        """清空终端"""
-        self.console_text.delete(1.0, tk.END)
-        if self.terminal_mode:
-            self.console_text.insert(tk.END, "Python 3 Terminal >>> ", 'Terminal')
-        else:
-            self.console_text.insert(tk.END, ">>> ")
-        self.console_text.mark_set("input_start", "end-1c")
-        self.console_text.mark_gravity("input_start", "left")
-        self.console_text.see(tk.END)
-
-    def restart_terminal(self):
-        """重启终端"""
-        self.console_text.insert(tk.END, "\n重启Python终端...\n", 'Terminal')
-        self.console_text.see(tk.END)
-        self.start_terminal_mode()
-
-    def toggle_mode(self):
-        """切换终端/运行模式"""
-        if self.terminal_mode:
-            # 切换到运行模式
-            self.terminal_mode = False
-            self.console_text.insert(tk.END, "\n切换到运行模式\n>>> ")
-            self.console_text.see(tk.END)
-        else:
-            # 切换到终端模式
-            self.terminal_mode = True
-            self.console_text.insert(tk.END, "\n切换到Python终端模式\n>>> ", 'Terminal')
-            self.console_text.see(tk.END)
+        # 设置当前代码上下文
+        current_code = self.code_text.get(1.0, tk.END).strip()
+        if current_code:
+            try:
+                import ai_compiler
+                ai_compiler.set_current_code(current_code)
+            except:
+                pass
         
-        self.console_text.mark_set("input_start", "end-1c")
-        self.console_text.mark_gravity("input_start", "left")
+        # 聊天历史显示区域
+        chat_history_frame = ttk.Frame(chat_window)
+        chat_history_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # 工具栏
+        toolbar = ttk.Frame(chat_history_frame)
+        toolbar.pack(fill=tk.X, pady=(0, 5))
+        
+        ttk.Label(toolbar, text="🤖 AI智能编程助手", font=('等线', 14, 'bold')).pack(side=tk.LEFT)
+        
+        # 功能按钮
+        button_frame = ttk.Frame(toolbar)
+        button_frame.pack(side=tk.RIGHT)
+        
+        ttk.Button(button_frame, text="分析代码", 
+                  command=lambda: self.analyze_current_code(chat_window)).pack(side=tk.LEFT, padx=2)
+        ttk.Button(button_frame, text="优化建议", 
+                  command=lambda: self.suggest_improvements(chat_window)).pack(side=tk.LEFT, padx=2)
+        ttk.Button(button_frame, text="解释代码", 
+                  command=lambda: self.explain_current_code(chat_window)).pack(side=tk.LEFT, padx=2)
+        
+        self.chat_history_text = scrolledtext.ScrolledText(
+            chat_history_frame, 
+            wrap=tk.WORD, 
+            font=("等线", 11),
+            height=20
+        )
+        self.chat_history_text.pack(fill=tk.BOTH, expand=True)
+        self.chat_history_text.config(state=tk.DISABLED)
+        
+        # 输入区域
+        input_frame = ttk.Frame(chat_window)
+        input_frame.pack(fill=tk.X, padx=10, pady=10)
+        
+        self.chat_input = scrolledtext.ScrolledText(
+            input_frame,
+            wrap=tk.WORD,
+            font=("等线", 11),
+            height=4
+        )
+        self.chat_input.pack(fill=tk.X, side=tk.LEFT, expand=True)
+        
+        button_frame = ttk.Frame(input_frame)
+        button_frame.pack(side=tk.RIGHT, padx=(10, 0))
+        
+        ttk.Button(button_frame, text="发送", 
+                  command=lambda: self.send_chat_message(chat_window)).pack(pady=2)
+        ttk.Button(button_frame, text="清空", 
+                  command=self.clear_chat).pack(pady=2)
+        ttk.Button(button_frame, text="插入代码", 
+                  command=self.insert_chat_code).pack(pady=2)
+        ttk.Button(button_frame, text="清空历史", 
+                  command=self.clear_chat_history).pack(pady=2)
+        
+        # 绑定快捷键
+        self.chat_input.bind("<Control-Return>", lambda e: self.send_chat_message(chat_window))
+        
+        # 显示欢迎消息
+        welcome_msg = """🤖 欢迎使用AI智能编程助手！
+
+我可以帮助您：
+• 📊 深度分析代码质量和性能
+• ⚡ 提供专业的优化建议
+• 📝 详细解释代码逻辑
+• 🔧 调试和修复问题
+• 💡 教学编程概念和最佳实践
+• 🔍 进行代码审查
+
+请描述您的问题或需要帮助的代码部分。"""
+        self.add_chat_message("AI", welcome_msg)
+
+    def analyze_current_code(self, chat_window):
+        """分析当前代码"""
+        current_code = self.code_text.get(1.0, tk.END).strip()
+        if not current_code:
+            self.add_chat_message("AI", "请先在编辑器中输入一些代码。")
+            return
+        
+        self.add_chat_message("你", "请分析当前编辑器的代码")
+        self.add_chat_message("AI", "正在深度分析代码...")
+        
+        threading.Thread(target=self.analyze_code_thread, args=(current_code,), daemon=True).start()
+
+    def suggest_improvements(self, chat_window):
+        """获取改进建议"""
+        current_code = self.code_text.get(1.0, tk.END).strip()
+        if not current_code:
+            self.add_chat_message("AI", "请先在编辑器中输入一些代码。")
+            return
+        
+        self.add_chat_message("你", "请为当前代码提供改进建议")
+        self.add_chat_message("AI", "正在分析改进机会...")
+        
+        threading.Thread(target=self.suggest_improvements_thread, args=(current_code,), daemon=True).start()
+
+    def explain_current_code(self, chat_window):
+        """解释当前代码"""
+        current_code = self.code_text.get(1.0, tk.END).strip()
+        if not current_code:
+            self.add_chat_message("AI", "请先在编辑器中输入一些代码。")
+            return
+        
+        self.add_chat_message("你", "请详细解释当前代码")
+        self.add_chat_message("AI", "正在分析代码逻辑...")
+        
+        threading.Thread(target=self.explain_code_thread, args=(current_code,), daemon=True).start()
+
+    def analyze_code_thread(self, code):
+        """分析代码线程"""
+        try:
+            import ai_compiler
+            response = ai_compiler.analyze(code)
+            self.root.after(0, lambda: self.add_chat_message("AI", response))
+        except Exception as e:
+            self.root.after(0, lambda: self.add_chat_message("AI", f"分析失败：{str(e)}"))
+
+    def suggest_improvements_thread(self, code):
+        """改进建议线程"""
+        try:
+            import ai_compiler
+            response = ai_compiler.suggest_improvements(code)
+            self.root.after(0, lambda: self.add_chat_message("AI", response))
+        except Exception as e:
+            self.root.after(0, lambda: self.add_chat_message("AI", f"获取建议失败：{str(e)}"))
+
+    def explain_code_thread(self, code):
+        """解释代码线程"""
+        try:
+            import ai_compiler
+            response = ai_compiler.explain(code)
+            self.root.after(0, lambda: self.add_chat_message("AI", response))
+        except Exception as e:
+            self.root.after(0, lambda: self.add_chat_message("AI", f"解释失败：{str(e)}"))
+
+    def send_chat_message(self, chat_window):
+        """发送聊天消息"""
+        message = self.chat_input.get(1.0, tk.END).strip()
+        if not message:
+            return
+            
+        # 添加用户消息到聊天历史
+        self.add_chat_message("你", message)
+        
+        # 清空输入框
+        self.chat_input.delete(1.0, tk.END)
+        
+        # 显示思考中消息
+        self.add_chat_message("AI", "思考中...")
+        
+        # 获取当前代码上下文
+        current_code = self.code_text.get(1.0, tk.END).strip()
+        if not current_code:
+            current_code = None
+        
+        # 在新线程中调用AI
+        threading.Thread(target=self.chat_with_ai, args=(message, current_code), daemon=True).start()
+
+    def chat_with_ai(self, message, code_context):
+        """与AI对话"""
+        try:
+            import ai_compiler
+            response = ai_compiler.chat(message, code_context)
+            self.root.after(0, lambda: self.add_chat_message("AI", response))
+        except Exception as e:
+            self.root.after(0, lambda: self.add_chat_message("AI", f"对话失败：{str(e)}"))
+
+    def clear_chat_history(self):
+        """清空聊天历史"""
+        try:
+            import ai_compiler
+            ai_compiler.clear_chat_history()
+            self.chat_history_text.config(state=tk.NORMAL)
+            self.chat_history_text.delete(1.0, tk.END)
+            self.chat_history_text.config(state=tk.DISABLED)
+            self.add_chat_message("AI", "对话历史已清空！")
+        except Exception as e:
+            self.add_chat_message("AI", f"清空历史失败：{str(e)}")
+
+    def add_chat_message(self, sender, message):
+        """添加消息到聊天历史"""
+        self.chat_history_text.config(state=tk.NORMAL)
+        
+        # 如果是思考中消息，先删除上一条思考中消息
+        if message == "思考中...":
+            # 查找并删除上一条思考中消息
+            content = self.chat_history_text.get(1.0, tk.END)
+            if "思考中..." in content:
+                # 简单实现：删除最后一条消息
+                lines = content.strip().split('\n')
+                new_lines = [line for line in lines if "思考中..." not in line]
+                self.chat_history_text.delete(1.0, tk.END)
+                self.chat_history_text.insert(tk.END, '\n'.join(new_lines) + '\n')
+        
+        if sender == "AI":
+            self.chat_history_text.insert(tk.END, f"\n🤖 {sender}: {message}\n", "ai_message")
+            self.chat_history_text.tag_configure("ai_message", foreground="blue")
+        else:
+            self.chat_history_text.insert(tk.END, f"\n👤 {sender}: {message}\n", "user_message")
+            self.chat_history_text.tag_configure("user_message", foreground="green")
+        
+        self.chat_history_text.config(state=tk.DISABLED)
+        self.chat_history_text.see(tk.END)
+        
+        # 保存到聊天历史
+        self.chat_history.append({"sender": sender, "message": message, "timestamp": time.time()})
+
+    def clear_chat(self):
+        """清空聊天输入"""
+        self.chat_input.delete(1.0, tk.END)
+
+    def insert_chat_code(self):
+        """将聊天中的代码插入到编辑器"""
+        # 获取聊天历史中最后一条AI消息
+        ai_messages = [msg for msg in self.chat_history if msg["sender"] == "AI"]
+        if not ai_messages:
+            messagebox.showinfo("提示", "没有找到AI生成的代码")
+            return
+            
+        last_ai_message = ai_messages[-1]["message"]
+        
+        # 提取代码块（假设代码在```python和```之间）
+        if "```python" in last_ai_message:
+            code_start = last_ai_message.find("```python") + 9
+            code_end = last_ai_message.find("```", code_start)
+            code = last_ai_message[code_start:code_end].strip()
+            
+            # 插入到代码编辑器
+            self.code_text.insert(tk.END, f"\n\n# AI生成的代码\n{code}\n")
+            self.add_info_message("AI生成的代码已插入到编辑器中", "success")
+        else:
+            messagebox.showinfo("提示", "未找到可插入的代码块")
 
     def populate_tree(self, path, parent="", deepth=0, max_depth=3):
         """填充文件树，支持多级目录"""
@@ -539,11 +598,8 @@ class CodeEditorApp:
                 self.code_text.delete(1.0, tk.END)
                 self.code_text.insert(1.0, content)
                 
-                # 在控制台显示提示
-                self.console_text.insert(tk.END, f"\n已打开文件: {file_path}\n>>> ")
-                self.console_text.mark_set("input_start", "end-1c")
-                self.console_text.mark_gravity("input_start", "left")
-                self.console_text.see(tk.END)
+                # 在信息显示区域显示提示
+                self.add_info_message(f"已打开文件: {file_path}")
             else:
                 # 对于非Python文件，尝试用系统默认程序打开
                 import subprocess
@@ -567,35 +623,6 @@ class CodeEditorApp:
             self.project_root = folder_path
             self.refresh_tree()
 
-    def read_console_output_simple(self):
-        """读取控制台输出 - 简单可靠的方法"""
-        print('SubThread is opening (simple mode)')
-        
-        while self.running[0]:
-            try:
-                # 检查进程是否结束
-                if self.console_process.poll() is not None:
-                    self.running[0] = False
-                    break
-                
-                # 读取标准输出 - 使用文本模式
-                output = self.console_process.stdout.readline()
-                if output:
-                    self.console_queue.put(output)
-                
-                # 读取错误输出
-                error = self.console_process.stderr.readline()
-                if error:
-                    self.error_queue.put(error)
-                        
-            except Exception as e:
-                # 忽略常见的IO错误，这些通常发生在进程结束时
-                if "I/O operation on closed file" not in str(e):
-                    print(f"读取输出错误: {e}")
-                break
-        
-        print('SubThread exit (simple mode)')
-
     def update_layout(self):
         # 根据比例系数调整各部分大小
         window_width = self.root.winfo_width()
@@ -605,9 +632,9 @@ class CodeEditorApp:
         tree_width = int(window_width * 0.2)
         self.ast_frame.config(width=tree_width)
         
-        # 控制台高度占总高度的20%
-        console_height = int(window_height * 0.35)
-        self.console_frame.config(height=console_height)
+        # 信息显示区域高度占总高度的20%
+        info_height = int(window_height * 0.2)
+        self.info_frame.config(height=info_height)
 
     def on_resize(self, event):
         # 计算新的比例系数
@@ -624,6 +651,7 @@ class CodeEditorApp:
     def new_file(self):
         self.current_file = None
         self.code_text.delete(1.0, tk.END)
+        self.add_info_message("已创建新文件")
 
     def open_file(self):
         file_path = filedialog.askopenfilename(filetypes=[("Python Files", "*.py"), ("All Files", "*.*")])
@@ -632,13 +660,16 @@ class CodeEditorApp:
             with open(file_path, "r", encoding="utf-8") as f:
                 self.code_text.delete(1.0, tk.END)
                 self.code_text.insert(1.0, f.read())
+            self.add_info_message(f"已打开文件: {file_path}")
 
     def save_file(self):
         if self.current_file:
             with open(self.current_file, "w", encoding="utf-8") as f:
                 f.write(self.code_text.get(1.0, tk.END))
+            self.add_info_message(f"已保存文件: {self.current_file}", "success")
+            return True
         else:
-            self.save_file_as()
+            return self.save_file_as()
 
     def save_file_as(self):
         file_path = filedialog.asksaveasfilename(defaultextension=".py", filetypes=[("Python Files", "*.py"), ("All Files", "*.*")])
@@ -646,65 +677,13 @@ class CodeEditorApp:
             self.current_file = file_path
             with open(file_path, "w", encoding="utf-8") as f:
                 f.write(self.code_text.get(1.0, tk.END))
+            self.add_info_message(f"已保存文件: {file_path}", "success")
+            return True
+        return False
 
     def run_code(self):
-        if self.current_file:
-            self.save_file()
-            self.console_text.delete(1.0, tk.END)  # 清空控制台
-            self.console_text.insert(tk.END, f'正在运行: {self.current_file}\n>>> ')
-            self.console_text.mark_set("input_start", "end-1c")
-            self.console_text.mark_gravity("input_start", "left")
-            self.console_text.see(tk.END)
-            
-            self.running[0] = True
-            
-            # 停止之前的进程
-            if self.console_process is not None:
-                if self.console_process.poll() is None:
-                    self.console_process.kill()
-            
-            # 设置启动参数
-            startupinfo = None
-            creationflags = 0
-            if sys.platform == 'win32':
-                startupinfo = subprocess.STARTUPINFO()
-                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-                startupinfo.wShowWindow = 0  # SW_HIDE
-                creationflags = subprocess.CREATE_NO_WINDOW
-            
-            # 使用系统的python命令
-            python_executable = "python"
-            
-            try:
-                # 使用文本模式，简化编码设置
-                self.console_process = subprocess.Popen(
-                    [python_executable, "-u", self.current_file],
-                    stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,  # 使用文本模式
-                    bufsize=1,  # 行缓冲
-                    encoding='utf-8',  # 明确指定编码
-                    errors='replace',  # 替换无法解码的字符
-                    startupinfo=startupinfo,
-                    creationflags=creationflags
-                )
-                
-                # 启动线程读取输出
-                threading.Thread(target=self.read_console_output_simple, daemon=True).start()
-                
-                # 启动后重新设置控制台焦点
-                self.console_text.focus_set()
-                
-            except FileNotFoundError:
-                messagebox.showerror("错误", "未找到Python解释器。请确保已安装Python并添加到系统PATH环境变量中。")
-                self.running[0] = False
-            except Exception as e:
-                messagebox.showerror("错误", f"运行失败: {str(e)}")
-                self.running[0] = False
-            
-        else:
-            messagebox.showwarning("警告", "请先保存文件")
+        """保留原有的运行功能（不使用）"""
+        pass
 
     def analyze_syntax(self):
         """AI分析代码"""
@@ -717,31 +696,24 @@ class CodeEditorApp:
         
         # 检查是否设置了API密钥
         try:
+            # 在 Maink.py 的适当位置添加
             import ai_compiler
-            # 设置API密钥（你需要在某个地方设置这个）
-            ai_compiler.set_api_key("sk-da4d67f10f7d407599e333ad99994758")
+            ai_compiler.set_api_key("你的Deepseek API")
             
             # 显示等待提示
-            self.console_text.insert(tk.END, "\n🤖 AI正在分析代码...\n>>> ")
-            self.console_text.mark_set("input_start", "end-1c")
-            self.console_text.mark_gravity("input_start", "left")
-            self.console_text.see(tk.END)
+            self.add_info_message("AI正在分析代码...")
             
             # 调用AI分析
             result = ai_compiler.analyze(code)
             
             # 显示结果
-            self.console_text.insert(tk.END, f"\n📊 分析结果：\n{result}\n>>> ")
-            self.console_text.mark_set("input_start", "end-1c")
-            self.console_text.mark_gravity("input_start", "left")
-            self.console_text.see(tk.END)
+            self.add_info_message(f"分析结果：{result}")
             
         except ImportError:
             messagebox.showerror("错误", "找不到AI编译器模块")
         except Exception as e:
             messagebox.showerror("错误", f"分析失败：{str(e)}")
 
-    # 你还可以添加更多AI功能：
     def explain_code(self):
         """解释代码"""
         code = self.code_text.get(1.0, tk.END)
@@ -781,114 +753,17 @@ class CodeEditorApp:
     def show_about(self):
         messagebox.showinfo("关于", "Python聚源仓项目，是一款AI智能编译器，目前只支持Python，制作团队基本都是学生，具有AI分析代码，AI优化代码，AI上下文理解等功能，完全免费，完全免费开源")
 
-    def on_close(self):
-        # 关闭控制台进程
-        if self.console_process:
-            self.console_process.stdin.close()
-            self.console_process.terminate()
-            self.console_process.wait()
-        # 关闭终端进程
-        if self.terminal_process:
-            self.terminal_process.stdin.close()
-            self.terminal_process.terminate()
-            self.terminal_process.wait()
-        self.root.destroy()
-
     def stop_code(self):
-        """停止正在运行的Python程序（增强版）"""
-        if not self.console_process:
-            self.console_text.insert(tk.END, "\n⚠️ 没有正在运行的程序\n>>> ")
-            self.console_text.mark_set("input_start", "end-1c")
-            self.console_text.mark_gravity("input_start", "left")
-            self.console_text.see(tk.END)
-            return
-        
-        try:
-            # 检查进程状态
-            if self.console_process.poll() is None:
-                self.console_text.insert(tk.END, "\n🛑 正在停止程序...\n")
-                self.console_text.see(tk.END)
-                
-                # 先尝试温和地终止
-                self.console_process.terminate()
-                
-                # 等待最多3秒
-                try:
-                    self.console_process.wait(timeout=3)
-                    self.console_text.insert(tk.END, "✅ 程序已正常停止\n>>> ")
-                except subprocess.TimeoutExpired:
-                    # 如果不响应，强制杀死
-                    self.console_text.insert(tk.END, "⚠️ 程序无响应，强制终止...\n")
-                    self.console_process.kill()
-                    self.console_process.wait()
-                    self.console_text.insert(tk.END, "✅ 程序已强制终止\n>>> ")
-            else:
-                self.console_text.insert(tk.END, "\nℹ️ 程序已经结束运行\n>>> ")
-            
-            self.running[0] = False
-            self.console_text.mark_set("input_start", "end-1c")
-            self.console_text.mark_gravity("input_start", "left")
-            self.console_text.see(tk.END)
-            
-        except Exception as e:
-            self.console_text.insert(tk.END, f"\n❌ 停止失败: {str(e)}\n>>> ")
-            self.console_text.mark_set("input_start", "end-1c")
-            self.console_text.mark_gravity("input_start", "left")
-            self.console_text.see(tk.END)
-
-    def force_stop_all(self):
-        """强制停止所有Python进程（紧急情况使用）"""
-        try:
-            import psutil
-            current_pid = os.getpid()
-            
-            # 查找并终止所有Python进程（除了编辑器本身）
-            for proc in psutil.process_iter(['pid', 'name']):
-                try:
-                    if proc.info['name'] and 'python' in proc.info['name'].lower():
-                        if proc.info['pid'] != current_pid and proc.info['pid'] != self.console_process.pid if self.console_process else True:
-                            proc.terminate()
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    pass
-            
-            self.console_text.insert(tk.END, "\n🚨 已强制停止所有Python进程\n>>> ")
-            self.console_text.mark_set("input_start", "end-1c")
-            self.console_text.mark_gravity("input_start", "left")
-            self.console_text.see(tk.END)
-            
-        except ImportError:
-            # 如果没有psutil，使用系统命令
-            if sys.platform == "win32":
-                os.system("taskkill /f /im python.exe")
-            else:
-                os.system("pkill -f python")
-            
-            self.console_text.insert(tk.END, "\n🚨 已强制停止Python进程\n>>> ")
-            self.console_text.mark_set("input_start", "end-1c")
-            self.console_text.mark_gravity("input_start", "left")
-            self.console_text.see(tk.END)
+        """停止正在运行的代码"""
+        self.add_info_message("停止功能：请在打开的终端窗口中手动停止程序", "warning")
 
     def safe_close(self):
         """安全关闭应用程序"""
         try:
-            # 停止所有运行的进程
-            self.stop_code()
-            
-            # 关闭终端进程
-            if self.terminal_process and self.terminal_process.poll() is None:
-                self.terminal_process.terminate()
-                try:
-                    self.terminal_process.wait(timeout=2)
-                except subprocess.TimeoutExpired:
-                    self.terminal_process.kill()
-            
-            # 关闭控制台进程
-            if self.console_process and self.console_process.poll() is None:
-                self.console_process.terminate()
-                try:
-                    self.console_process.wait(timeout=2)
-                except subprocess.TimeoutExpired:
-                    self.console_process.kill()
+            # 如果有未保存的更改，提示保存
+            if self.current_file:
+                # 这里可以添加检查文件是否已修改的逻辑
+                pass
             
         except Exception as e:
             print(f"关闭过程中出现错误: {e}")
@@ -898,7 +773,7 @@ class CodeEditorApp:
             self.root.destroy()
 
     def open_system_terminal(self):
-        """打开系统终端（增强版）"""
+        """打开系统终端"""
         try:
             # 获取要在其中打开终端的目录
             target_dir = self.project_root
@@ -908,9 +783,9 @@ class CodeEditorApp:
             
             # 确保目录存在
             if not os.path.exists(target_dir):
-                target_dir = self.project_root
+                target_dir = self  
             
-            self.console_text.insert(tk.END, f"\n🔧 在目录打开终端: {target_dir}\n>>> ", 'Terminal')
+            self.add_info_message(f"在目录打开终端: {target_dir}")
             
             if sys.platform == 'win32':
                 # Windows - 优先使用PowerShell，其次cmd
@@ -918,12 +793,12 @@ class CodeEditorApp:
                     # 使用start命令在新窗口中打开
                     subprocess.Popen(f'start powershell -NoExit -Command "cd \'{target_dir}\'"', 
                                 shell=True)
-                    self.console_text.insert(tk.END, "\n✅ 已在新窗口打开PowerShell\n>>> ", 'Terminal')
+                    self.add_info_message("已在新窗口打开PowerShell", "success")
                 except Exception:
                     try:
                         subprocess.Popen(f'start cmd /K "cd /d \"{target_dir}\""', 
                                     shell=True)
-                        self.console_text.insert(tk.END, "\n✅ 已在新窗口打开命令提示符\n>>> ", 'Terminal')
+                        self.add_info_message("已在新窗口打开命令提示符", "success")
                     except Exception as e:
                         raise e
             
@@ -936,7 +811,7 @@ class CodeEditorApp:
                 end tell
                 '''
                 subprocess.Popen(['osascript', '-e', applescript])
-                self.console_text.insert(tk.END, "\n✅ 已打开Terminal\n>>> ", 'Terminal')
+                self.add_info_message("已打开Terminal", "success")
             
             else:
                 # Linux
@@ -952,8 +827,8 @@ class CodeEditorApp:
                 for terminal, args in terminals:
                     try:
                         subprocess.Popen([terminal] + args)
-                        self.console_text.insert(tk.END, f"\n✅ 已打开{terminal}\n>>> ", 'Terminal')
                         terminal_found = True
+                        self.add_info_message(f"已打开{terminal}", "success")
                         break
                     except FileNotFoundError:
                         continue
@@ -962,19 +837,12 @@ class CodeEditorApp:
                     # 最后尝试使用桌面环境的默认终端
                     try:
                         subprocess.Popen(['x-terminal-emulator', '-e', f'bash -c "cd \\"{target_dir}\\"; bash"'])
-                        self.console_text.insert(tk.END, "\n✅ 已打开系统默认终端\n>>> ", 'Terminal')
+                        self.add_info_message("已打开系统默认终端", "success")
                     except FileNotFoundError:
                         raise FileNotFoundError("未找到可用的终端程序")
             
-            self.console_text.mark_set("input_start", "end-1c")
-            self.console_text.mark_gravity("input_start", "left")
-            self.console_text.see(tk.END)
-            
         except Exception as e:
-            self.console_text.insert(tk.END, f"\n❌ 打开系统终端失败: {str(e)}\n>>> ", 'Error')
-            self.console_text.mark_set("input_start", "end-1c")
-            self.console_text.mark_gravity("input_start", "left")
-            self.console_text.see(tk.END)
+            self.add_info_message(f"打开系统终端失败: {str(e)}", "error")
 
 if __name__ == "__main__":
     root = tk.Tk()
