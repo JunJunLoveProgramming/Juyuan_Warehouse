@@ -16,6 +16,8 @@ from PIL import Image, ImageTk
 import time
 import ctypes
 import pyperclip
+import backend
+import random
 
 # === 单实例检查开始 ===
 import socket
@@ -43,13 +45,16 @@ def feedback(rt):
 class CodeEditorApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("聚源仓-Version1.0.2")
+        self.root.title("聚源仓-Version1.0.3-开源版本")
         self.root.geometry("1440x900")
         if os.path.exists("./Resources/app.ico"):
             self.root.iconbitmap("./Resources/app.ico")
         
         # 设置API密钥
         self.setup_api_key()
+        
+        # 初始化backend处理引擎
+        self.setup_backend()
         
         # 比例系数，用于等比例缩放
         self.scale_ratio = 1.0
@@ -58,8 +63,7 @@ class CodeEditorApp:
             ("新建", './Resources/new.png', self.new_file),
             ("打开", './Resources/open.png', self.open_file),
             ("保存", './Resources/save.png', self.save_file),
-            ("运行", './Resources/run.png', self.run_code_in_terminal),
-            ("停止", './Resources/stop.png', self.stop_code), 
+            ("运行", './Resources/run.png', self.run_code_in_terminal), 
             ("AI助手", './Resources/ai.png', self.open_chat),
             ("打开系统终端", './Resources/run.png', self.open_system_terminal),
             ("关于", './Resources/info.png', self.show_about),
@@ -72,6 +76,9 @@ class CodeEditorApp:
         
         # 聊天相关属性
         self.chat_history = []
+        
+        # 语法高亮状态
+        self.syntax_highlight_enabled = True
         
         self.setup_ui()
         
@@ -94,6 +101,16 @@ class CodeEditorApp:
         except Exception as e:
             print(f"设置API密钥失败: {e}")
 
+    def setup_backend(self):
+        """初始化backend处理引擎"""
+        try:
+            self.backend_processor = backend.backEndprocessing()
+            # 设置语法高亮标签
+            self.backend_processor.setTagKeyWord("keyword")
+            print("Backend语法高亮引擎初始化成功")
+        except Exception as e:
+            print(f"Backend初始化失败: {e}")
+            self.backend_processor = None
 
     def setup_ui(self):
         # 顶部工具栏
@@ -105,7 +122,7 @@ class CodeEditorApp:
 
         if os.path.exists('./Resources/app.jpg'):
             self.image.append(ImageTk.PhotoImage(Image.open('./Resources/app.jpg').resize((80, 80))))
-            tk.Label(self.toolbar, image=self.image[0]).pack(side='left')
+            tk.Button(self.toolbar, image=self.image[0],relief="flat",command=self.hidden_easter_egg).pack(side='left')
             
         for name, icon, command in self.toolbar_items:
             if icon is not None and os.path.exists(icon):
@@ -148,6 +165,12 @@ class CodeEditorApp:
         self.code_text = scrolledtext.ScrolledText(self.edit_frame, wrap=tk.WORD, font=("Consolas", 12))
         self.code_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
+        # 配置语法高亮标签
+        self.code_text.tag_configure("keyword", foreground="blue", font=("Consolas", 12, "bold"))
+        
+        # 绑定文本变化事件以实现实时语法高亮
+        self.code_text.bind("<KeyRelease>", self.on_code_change)
+        
         # 底部信息显示区域（不再是交互式终端）
         self.info_frame = ttk.Frame(self.root, height=150)
         self.info_frame.pack(fill=tk.BOTH, side=tk.BOTTOM)
@@ -155,13 +178,164 @@ class CodeEditorApp:
         info_header = ttk.Frame(self.info_frame)
         info_header.pack(fill=tk.X, padx=5, pady=5)
         tk.Label(info_header, text="运行信息", font=('Consolas', 13)).pack(side=tk.LEFT)
-        
+                
         # 添加清空按钮
         ttk.Button(info_header, text='清空信息', command=self.clear_info).pack(side=tk.RIGHT, padx=2)
         
         self.info_text = scrolledtext.ScrolledText(self.info_frame, wrap=tk.WORD, font=("Consolas", 11))
         self.info_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         self.info_text.config(state=tk.DISABLED)  # 设置为只读
+
+    def hidden_easter_egg(self):
+        """隐藏彩蛋"""
+        self.hidden_easter_egg_window = tk.Toplevel(self.root)
+        self.hidden_easter_egg_window.title("聚源仓团队前端准备的彩蛋")
+        self.hidden_easter_egg_window.geometry("400x500")
+        self.hidden_easter_egg_window.transient(self.root)
+        self.hidden_easter_egg_window.iconbitmap("./Resources/app.ico")
+
+        self.image_paths = [
+            "./Resources/rehv/1.jpg",
+            "./Resources/rehv/7.jpg",
+            "./Resources/rehv/8.jpg",
+            "./Resources/rehv/9.jpg",
+            "./Resources/rehv/10.jpg",
+            "./Resources/rehv/11.jpg",
+            "./Resources/rehv/12.jpg",
+            "./Resources/rehv/13.jpg",
+            "./Resources/rehv/14.jpg",
+            "./Resources/rehv/15.jpg",
+            "./Resources/rehv/16.jpg",
+            "./Resources/rehv/17.jpg",
+            "./Resources/rehv/18.jpg",
+            "./Resources/rehv/19.jpg",
+            "./Resources/rehv/20.jpg",
+            "./Resources/rehv/21.jpg",
+            "./Resources/rehv/22.jpg",
+            "./Resources/rehv/23.jpg",
+            "./Resources/rehv/24.jpg",
+            "./Resources/rehv/25.jpg",
+            "./Resources/rehv/26.jpg",
+            "./Resources/rehv/27.jpg",
+            "./Resources/rehv/28.jpg",
+            "./Resources/rehv/29.jpg",
+            "./Resources/rehv/30.jpg",
+            "./Resources/rehv/31.jpg",
+            "./Resources/rehv/32.jpg",
+            "./Resources/rehv/33.jpg", 
+            "./Resources/rehv/34.jpg",
+            "./Resources/rehv/35.jpg",
+            "./Resources/rehv/36.jpg",
+            "./Resources/rehv/37.jpg",
+            "./Resources/rehv/38.jpg",  
+            "./Resources/rehv/39.jpg",
+            "./Resources/rehv/40.jpg",   
+            "./Resources/rehv/41.jpg",       
+            "./Resources/rehv/42.jpg",
+            "./Resources/rehv/43.jpg",
+            "./Resources/rehv/44.jpg",
+            "./Resources/rehv/45.jpg",
+            "./Resources/rehv/46.jpg",
+            "./Resources/rehv/47.jpg",
+            "./Resources/rehv/48.jpg",
+            "./Resources/rehv/49.jpg",
+            "./Resources/rehv/50.jpg",
+            "./Resources/rehv/51.jpg",
+            "./Resources/rehv/屏幕截图 2025-06-17 134644.png",
+            "./Resources/rehv/屏幕截图 2025-06-17 134743.png",          
+            "./Resources/rehv/屏幕截图 2025-06-23 133443.png",          
+            "./Resources/rehv/屏幕截图 2025-06-23 133746.png",          
+            "./Resources/rehv/屏幕截图 2025-07-09 205558.png",                                  
+        ]
+
+        self.create_widgets()
+        
+        self.show_random_image()
+
+    def create_widgets(self):
+        # 主框架
+        main_frame = ttk.Frame(self.hidden_easter_egg_window, padding=10)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+                
+        # 图片显示区域
+        self.image_frame = ttk.Frame(main_frame, relief=tk.SUNKEN, width=400, height=300)
+        self.image_frame.pack(pady=20, fill=tk.BOTH, expand=True)
+        self.image_frame.pack_propagate(False)
+        
+        # 图片标签
+        self.image_label = ttk.Label(self.image_frame)
+        self.image_label.pack(fill=tk.BOTH, expand=True)
+        
+        # 按钮框架
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(pady=10)
+        
+        # 随机图片按钮
+        random_button = ttk.Button(button_frame, text="随机图片", command=self.show_random_image)
+        random_button.pack(side=tk.LEFT, padx=5)
+        
+        # 退出按钮
+        exit_button = ttk.Button(button_frame, text="退出", command=self.root.quit)
+        exit_button.pack(side=tk.LEFT, padx=5)
+        
+        # 状态栏
+        self.status_var = tk.StringVar()
+        self.status_var.set("就绪")
+        status_bar = ttk.Label(main_frame, textvariable=self.status_var, relief=tk.SUNKEN)
+        status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+
+    def show_random_image(self):
+        # 随机选择一个图片路径
+        if self.image_paths:
+            image_path = random.choice(self.image_paths)
+                
+        # 打开并调整图片大小
+        image = Image.open(image_path)
+        image = self.resize_image(image, 400, 300)
+                    
+        # 转换为Tkinter可用的格式
+        self.current_image = ImageTk.PhotoImage(image)
+                    
+        # 更新图片标签
+        self.image_label.configure(image=self.current_image)
+        self.status_var.set(f"已显示: {os.path.basename(image_path)}")
+
+    def resize_image(self, image, max_width, max_height):
+        # 调整图片大小以适应显示区域
+        width, height = image.size
+        
+        # 计算缩放比例
+        ratio = min(max_width/width, max_height/height)
+        new_width = int(width * ratio)
+        new_height = int(height * ratio)
+        
+        # 调整图片大小
+        resized_image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        return resized_image
+                
+    def on_code_change(self, event=None):
+        """当代码内容改变时触发的函数"""
+        if self.syntax_highlight_enabled and self.backend_processor:
+            self.apply_syntax_highlighting()
+
+    def apply_syntax_highlighting(self):
+        """应用语法高亮"""
+        if not self.backend_processor:
+            return
+            
+        try:
+            # 获取当前文本
+            text_content = self.code_text.get("1.0", "end-1c")
+            
+            # 先移除所有现有的关键字标签
+            self.code_text.tag_remove("keyword", "1.0", "end")
+            
+            # 应用新的语法高亮
+            self.backend_processor.insertColorTag(text_content, self.code_text)
+            
+        except Exception as e:
+            # 语法高亮出错时不中断用户操作
+            print(f"语法高亮错误: {e}")
 
     def clear_info(self):
         """清空信息显示区域"""
@@ -264,9 +438,10 @@ class CodeEditorApp:
     def open_chat(self):
         """打开AI聊天窗口"""
         chat_window = tk.Toplevel(self.root)
-        chat_window.title("AI智能编程助手")
+        chat_window.title("聚源仓AI助手-Version 1.0.3")
         chat_window.geometry("700x600")
         chat_window.transient(self.root)
+        chat_window.iconbitmap("./Resources/app.ico")
         
         # 设置当前代码上下文
         current_code = self.code_text.get(1.0, tk.END).strip()
@@ -285,7 +460,7 @@ class CodeEditorApp:
         toolbar = ttk.Frame(chat_history_frame)
         toolbar.pack(fill=tk.X, pady=(0, 5))
         
-        ttk.Label(toolbar, text="🤖 AI智能编程助手", font=('等线', 14, 'bold')).pack(side=tk.LEFT)
+        ttk.Label(toolbar, text="聚源仓AI助手-Version 1.0.3", font=('等线', 14, 'bold')).pack(side=tk.LEFT)
         
         # 功能按钮
         button_frame = ttk.Frame(toolbar)
@@ -335,15 +510,15 @@ class CodeEditorApp:
         self.chat_input.bind("<Control-Return>", lambda e: self.send_chat_message(chat_window))
         
         # 显示欢迎消息
-        welcome_msg = """🤖 欢迎使用AI智能编程助手！
+        welcome_msg = """欢迎使用AI智能编程助手！
 
 我可以帮助您：
-• 📊 深度分析代码质量和性能
-• ⚡ 提供专业的优化建议
-• 📝 详细解释代码逻辑
-• 🔧 调试和修复问题
-• 💡 教学编程概念和最佳实践
-• 🔍 进行代码审查
+• 深度分析代码质量和性能
+• 提供专业的优化建议
+• 详细解释代码逻辑
+• 调试和修复问题
+• 教学编程概念和最佳实践
+• 进行代码审查
 
 请描述您的问题或需要帮助的代码部分。"""
         self.add_chat_message("AI", welcome_msg)
@@ -506,6 +681,10 @@ class CodeEditorApp:
             # 插入到代码编辑器
             self.code_text.insert(tk.END, f"\n\n# AI生成的代码\n{code}\n")
             self.add_info_message("AI生成的代码已插入到编辑器中", "success")
+            
+            # 应用语法高亮
+            if self.syntax_highlight_enabled:
+                self.apply_syntax_highlighting()
         else:
             messagebox.showinfo("提示", "未找到可插入的代码块")
 
@@ -598,6 +777,10 @@ class CodeEditorApp:
                 self.code_text.delete(1.0, tk.END)
                 self.code_text.insert(1.0, content)
                 
+                # 应用语法高亮
+                if self.syntax_highlight_enabled:
+                    self.apply_syntax_highlighting()
+                
                 # 在信息显示区域显示提示
                 self.add_info_message(f"已打开文件: {file_path}")
             else:
@@ -652,6 +835,10 @@ class CodeEditorApp:
         self.current_file = None
         self.code_text.delete(1.0, tk.END)
         self.add_info_message("已创建新文件")
+        
+        # 如果是空文件，也应用语法高亮
+        if self.syntax_highlight_enabled:
+            self.apply_syntax_highlighting()
 
     def open_file(self):
         file_path = filedialog.askopenfilename(filetypes=[("Python Files", "*.py"), ("All Files", "*.*")])
@@ -660,6 +847,11 @@ class CodeEditorApp:
             with open(file_path, "r", encoding="utf-8") as f:
                 self.code_text.delete(1.0, tk.END)
                 self.code_text.insert(1.0, f.read())
+            
+            # 应用语法高亮
+            if self.syntax_highlight_enabled:
+                self.apply_syntax_highlighting()
+                
             self.add_info_message(f"已打开文件: {file_path}")
 
     def save_file(self):
@@ -751,11 +943,17 @@ class CodeEditorApp:
         tk.Button(result_window, text="关闭", command=result_window.destroy).pack(pady=10)
 
     def show_about(self):
-        messagebox.showinfo("关于", "Python聚源仓项目，是一款AI智能编译器，目前只支持Python，制作团队基本都是学生，具有AI分析代码，AI优化代码，AI上下文理解等功能，完全免费，完全免费开源")
+        about_text = """Python聚源仓项目，是一款AI智能编译器，目前只支持Python，制作团队基本都是学生。
 
-    def stop_code(self):
-        """停止正在运行的代码"""
-        self.add_info_message("停止功能：请在打开的终端窗口中手动停止程序", "warning")
+功能特点：
+• AI分析代码、优化代码、上下文理解
+• 语法高亮显示
+• 在系统终端中运行代码
+• 文件管理功能
+• 完全免费开源
+
+语法高亮功能由backend引擎提供支持。"""
+        messagebox.showinfo("关于", about_text)
 
     def safe_close(self):
         """安全关闭应用程序"""
@@ -783,7 +981,7 @@ class CodeEditorApp:
             
             # 确保目录存在
             if not os.path.exists(target_dir):
-                target_dir = self  
+                target_dir = self.project_root
             
             self.add_info_message(f"在目录打开终端: {target_dir}")
             
