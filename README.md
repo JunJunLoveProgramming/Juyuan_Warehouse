@@ -31,5 +31,5 @@ api_key = "你的Deepseek API"
 
 ## 反馈建议
 
-有什么问题建议，请发送邮箱到junjunaibiancheng@juyuancang.cn
+有什么问题建议，请发送邮箱到junjunloveprogramming@juyuancang.cn
 - [聚源仓官网](https://www.juyuancang.cn)
