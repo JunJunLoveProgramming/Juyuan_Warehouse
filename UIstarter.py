@@ -1,4 +1,3 @@
-# UIstarter.py
 import tkinter as tk
 import sys
 import os
@@ -8,7 +7,6 @@ import time
 
 def input(title=None):
     """自定义输入函数"""
-    stau = [0]
     result = [""]
     
     def get_input():
@@ -20,41 +18,23 @@ def input(title=None):
         
         s = tk.Entry(win, font=('Terminal', 15), width=24)
         s.pack(padx=2, pady=20)
-        s.focus_set()  # 自动聚焦到输入框
+        s.focus_set()
         
         def on_confirm():
             result[0] = s.get()
-            stau[0] = 1
             win.destroy()
         
         tk.Button(win, text='确定', relief='solid', command=on_confirm,
                   font=('等线', 15)).pack()
         
-        # 绑定回车键
-        win.bind('<Return>', lambda e: on_confirm())
+        # 修复：使用明确的参数名
+        def handle_return(event):
+            on_confirm()
         
-        while not stau[0]:
-            try:
-                win.update()
-                time.sleep(0.01)
-            except:
-                break
+        win.bind('<Return>', handle_return)
+        win.mainloop()
     
-    # 在子线程中运行GUI，避免阻塞
-    if threading.current_thread() is threading.main_thread():
-        get_input()
-    else:
-        # 如果在子线程中，需要在主线程运行GUI
-        import queue
-        q = queue.Queue()
-        
-        def run_in_main():
-            get_input()
-            q.put(result[0])
-        
-        win.after(0, run_in_main)
-        result[0] = q.get()
-    
+    get_input()
     return result[0]
 
 def run_python_file(file_path):
