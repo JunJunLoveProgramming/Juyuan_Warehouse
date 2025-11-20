@@ -8,7 +8,8 @@ class pmPackage:
     def __init__(self):
         self.tagList = []#在列表里填入键值，自动生成全否定字典
         self.tagDic = {'--onefile':True,'--windowed':True}
-        self.fileName = None
+        self.__icon = ''
+        self.__fileName = None
 
     def runPachage(self):
         pm.run(self._getTrueList())
@@ -16,15 +17,24 @@ class pmPackage:
 
     def _getTrueList(self):
         result = []
-        result.append(self.fileName)
+        result.append(self.__fileName)
+
 
         for i in self.tagDic.keys():
             if self.tagDic[i]:
                 result.append(i)
+
+        result.append(self.__icon)
         return  result
     def setFileName(self,name):
-        self.fileName = name
+        self.__fileName = name
+
+    def setIcon(self,name):
+        self.__icon = f'-i{name}'
 
 if __name__ == "__main__":
     pmK = pmPackage()
     pmK.tagDic['--windowed'] = False
+    pmK.setFileName("test.py")
+    pmK.setIcon("neko.ico")
+    pmK.runPachage()
