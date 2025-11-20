@@ -4,7 +4,7 @@ import PyInstaller.__main__ as pm
 
 datas, binaries, hiddenimports = collect_all('maink')
 
-class pmPackage:
+class pmPackage:#打包用的类
     def __init__(self):
         self.tagList = []#在列表里填入键值，自动生成全否定字典
         self.tagDic = {'--onefile':True,'--windowed':True}
