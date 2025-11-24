@@ -4,22 +4,26 @@
 
 # 聚源仓-Juyuan Warehouse
 
-Python聚源仓项目，是一款AI智能编译器，目前只支持Python，制作团队基本都是学生，具有AI分析代码，AI优化代码，AI上下文理解等功能，完全免费，完全免费开源
+Python聚源仓项目，是一款AI智能编译器，由骏骏爱编程开发，其他人辅助帮忙开发，具有AI分析代码，AI优化代码，AI上下文理解等功能，完全免费，完全免费开源。
 
 ## 版本
-【当前开源版版本】1.0.4 【更新日志】新增一键打包exe和安装第三方库，支持html和markdown格式，AI助手优化
+【当前开源版版本】1.0.4 
+【更新日志】UI重新设计，把原本的AI助手移动到界面右侧，取消运行信息和文件树，AI助手生成代码自动插入编辑处，优化了许多功能
+
+## 小Tips
+聚源仓1.0.3版本以上点击左上角聚源仓logo有我们聚源仓团队前端精心准备的彩蛋
 
 ## 主文件
 主文件位于Maink.py里，如果设置设置DeepSeek API，请翻阅下面一章
 
 ## 设置DeepSeek API
 
-如果你要使用已经购买的Deepseek的API，请打开项目中的Maink.py文件，翻到103行，按照提示更换你的Deepseek API即可
+如果你要使用已经购买的Deepseek的API，请打开项目中的Maink.py文件，翻到92行，按照提示更换你的Deepseek API即可
 
 ```bash
 api_key = "你的Deepseek API"
 ```
-## 参与聚源仓项目作者抖音
+## 参与聚源仓项目抖音
 
 - [@骏骏爱编程](https://www.douyin.com/user/MS4wLjABAAAAWcjafd0OJ5vvqWLC6sH9qnEkXpbJGxcBVFI6fU6E6pxOlFp-jLbf5E15f-CaU3Gy?from_tab_name=main)
 - [@润哥小号2](https://www.douyin.com/user/MS4wLjABAAAAcOm_cJpfUjFsj5ZVMC9gL3rgDV2i0dboqQVf5T5Bnkai1cxk9uxHj1HmCfrhrZgK?from_tab_name=main)
@@ -31,5 +35,5 @@ api_key = "你的Deepseek API"
 
 ## 反馈建议
 
-有什么问题建议，请发送邮箱到junjunloveprogramming@juyuancang.cn
+有什么问题建议，请发送邮箱到junjunaibiancheng@juyuancang.cn
 - [聚源仓官网](https://www.juyuancang.cn)
