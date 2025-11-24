@@ -1,0 +1,441 @@
+
+
+<!-- ===== AI生成的HTML代码 ===== -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>英语单词听写应用 - 由聚源仓AI助手生成</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            color: #333;
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background-color: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            padding: 30px;
+            transition: all 0.3s ease;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 2.2rem;
+        }
+        
+        .description {
+            text-align: center;
+            color: #7f8c8d;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        
+        .upload-section {
+            background-color: #f8f9fa;
+            border: 2px dashed #3498db;
+            border-radius: 10px;
+            padding: 25px;
+            text-align: center;
+            margin-bottom: 25px;
+            transition: all 0.3s ease;
+        }
+        
+        .upload-section:hover {
+            background-color: #e8f4fc;
+            border-color: #2980b9;
+        }
+        
+        .upload-label {
+            display: block;
+            font-size: 1.1rem;
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+        
+        .file-input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: white;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 12px 25px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+        
+        .btn:hover {
+            background-color: #2980b9;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn-primary {
+            background-color: #2ecc71;
+        }
+        
+        .btn-primary:hover {
+            background-color: #27ae60;
+        }
+        
+        .btn-danger {
+            background-color: #e74c3c;
+        }
+        
+        .btn-danger:hover {
+            background-color: #c0392b;
+        }
+        
+        .btn-secondary {
+            background-color: #95a5a6;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #7f8c8d;
+        }
+        
+        .word-list-section {
+            margin-top: 25px;
+            display: none;
+        }
+        
+        .word-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            margin-bottom: 20px;
+            background-color: #f9f9f9;
+        }
+        
+        .word-item {
+            padding: 10px 15px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .word-item:last-child {
+            border-bottom: none;
+        }
+        
+        .word-text {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .note-text {
+            color: #7f8c8d;
+            font-style: italic;
+        }
+        
+        .dictation-section {
+            margin-top: 25px;
+            display: none;
+        }
+        
+        .current-word {
+            font-size: 2.5rem;
+            text-align: center;
+            margin: 30px 0;
+            color: #2c3e50;
+            min-height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        .status {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 1rem;
+            color: #7f8c8d;
+        }
+        
+        .progress-bar {
+            height: 8px;
+            background-color: #ecf0f1;
+            border-radius: 4px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+        
+        .progress {
+            height: 100%;
+            background-color: #2ecc71;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn {
+                width: 100%;
+                margin: 5px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>英语单词听写应用</h1>
+        <p class="description">上传包含单词和备注的Excel文件，开始听写练习</p>
+        
+        <div class="upload-section">
+            <label class="upload-label">选择Excel文件 (.xlsx)</label>
+            <input type="file" id="fileInput" class="file-input" accept=".xlsx">
+            <button id="uploadBtn" class="btn">上传文件</button>
+        </div>
+        
+        <div id="wordListSection" class="word-list-section">
+            <h2>单词列表</h2>
+            <div id="wordList" class="word-list"></div>
+            <div class="controls">
+                <button id="startDictationBtn" class="btn btn-primary">开始听写</button>
+                <button id="resetBtn" class="btn btn-secondary">重置</button>
+            </div>
+        </div>
+        
+        <div id="dictationSection" class="dictation-section">
+            <h2>听写进行中</h2>
+            <div class="progress-bar">
+                <div id="progress" class="progress"></div>
+            </div>
+            <div id="currentWord" class="current-word"></div>
+            <div class="controls">
+                <button id="prevBtn" class="btn">上一个</button>
+                <button id="speakBtn" class="btn btn-primary">朗读单词</button>
+                <button id="nextBtn" class="btn">下一个</button>
+                <button id="endDictationBtn" class="btn btn-danger">结束听写</button>
+            </div>
+            <div id="status" class="status"></div>
+        </div>
+    </div>
+
+    <!-- 引入SheetJS库用于解析Excel文件 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <script>
+        // 全局变量
+        let wordList = [];
+        let currentIndex = 0;
+        
+        // DOM元素
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const wordListSection = document.getElementById('wordListSection');
+        const wordListElement = document.getElementById('wordList');
+        const startDictationBtn = document.getElementById('startDictationBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const dictationSection = document.getElementById('dictationSection');
+        const currentWordElement = document.getElementById('currentWord');
+        const prevBtn = document.getElementById('prevBtn');
+        const speakBtn = document.getElementById('speakBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const endDictationBtn = document.getElementById('endDictationBtn');
+        const statusElement = document.getElementById('status');
+        const progressElement = document.getElementById('progress');
+        
+        // 上传Excel文件
+        uploadBtn.addEventListener('click', function() {
+            const file = fileInput.files[0];
+            if (!file) {
+                alert('请选择一个Excel文件');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    // 获取第一个工作表
+                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+                    
+                    // 处理数据
+                    wordList = jsonData.map(item => {
+                        const word = item['单词'] || item['word'] || item['Word'] || '';
+                        const note = item['备注'] || item['note'] || item['Note'] || '';
+                        return { word, note };
+                    }).filter(item => item.word.trim() !== '');
+                    
+                    if (wordList.length === 0) {
+                        alert('Excel文件中没有找到有效的单词数据');
+                        return;
+                    }
+                    
+                    // 显示单词列表
+                    displayWordList();
+                    wordListSection.style.display = 'block';
+                    
+                } catch (error) {
+                    console.error('解析Excel文件时出错:', error);
+                    alert('解析Excel文件时出错，请确保文件格式正确');
+                }
+            };
+            
+            reader.readAsArrayBuffer(file);
+        });
+        
+        // 显示单词列表
+        function displayWordList() {
+            wordListElement.innerHTML = '';
+            
+            wordList.forEach((item, index) => {
+                const wordItem = document.createElement('div');
+                wordItem.className = 'word-item';
+                
+                const wordText = document.createElement('span');
+                wordText.className = 'word-text';
+                wordText.textContent = `${index + 1}. ${item.word}`;
+                
+                const noteText = document.createElement('span');
+                noteText.className = 'note-text';
+                noteText.textContent = item.note || '无备注';
+                
+                wordItem.appendChild(wordText);
+                wordItem.appendChild(noteText);
+                wordListElement.appendChild(wordItem);
+            });
+        }
+        
+        // 开始听写
+        startDictationBtn.addEventListener('click', function() {
+            if (wordList.length === 0) {
+                alert('请先上传包含单词的Excel文件');
+                return;
+            }
+            
+            wordListSection.style.display = 'none';
+            dictationSection.style.display = 'block';
+            currentIndex = 0;
+            updateCurrentWord();
+        });
+        
+        // 重置
+        resetBtn.addEventListener('click', function() {
+            wordListSection.style.display = 'block';
+            dictationSection.style.display = 'none';
+            currentWordElement.textContent = '';
+            statusElement.textContent = '';
+            progressElement.style.width = '0%';
+        });
+        
+        // 更新当前单词显示
+        function updateCurrentWord() {
+            currentWordElement.textContent = ''; // 清空显示，而不是显示马赛克
+            statusElement.textContent = `进度: ${currentIndex + 1}/${wordList.length}`;
+            progressElement.style.width = `${((currentIndex + 1) / wordList.length) * 100}%`;
+        }
+        
+        // 朗读单词
+        speakBtn.addEventListener('click', function() {
+            if (wordList.length === 0 || currentIndex >= wordList.length) return;
+            
+            const currentWord = wordList[currentIndex];
+            let textToSpeak = currentWord.word;
+            
+            // 如果有备注，则朗读单词+备注
+            if (currentWord.note && currentWord.note.trim() !== '') {
+                textToSpeak += `, ${currentWord.note}`;
+            }
+            
+            // 使用Web Speech API朗读
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(textToSpeak);
+                utterance.lang = 'en-US';
+                utterance.rate = 0.8;
+                speechSynthesis.speak(utterance);
+            } else {
+                alert('您的浏览器不支持语音合成功能');
+            }
+        });
+        
+        // 上一个单词
+        prevBtn.addEventListener('click', function() {
+            if (currentIndex > 0) {
+                currentIndex--;
+                updateCurrentWord();
+            }
+        });
+        
+        // 下一个单词
+        nextBtn.addEventListener('click', function() {
+            if (currentIndex < wordList.length - 1) {
+                currentIndex++;
+                updateCurrentWord();
+            } else {
+                statusElement.textContent = '听写已完成！';
+            }
+        });
+        
+        // 结束听写
+        endDictationBtn.addEventListener('click', function() {
+            wordListSection.style.display = 'block';
+            dictationSection.style.display = 'none';
+            currentWordElement.textContent = '';
+            statusElement.textContent = '';
+            progressElement.style.width = '0%';
+        });
+    </script>
+</body>
+</html>
+<!-- ===== 代码结束 ===== -->
+
