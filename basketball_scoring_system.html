@@ -1,0 +1,440 @@
+
+
+<!-- ===== AI生成的HTML代码 ===== -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>篮球计分系统 - 由聚源仓AI助手生成</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: white;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .timer {
+            font-size: 2rem;
+            font-weight: bold;
+            text-align: center;
+            flex: 1;
+        }
+        
+        .period {
+            font-size: 1.5rem;
+            text-align: center;
+            flex: 1;
+        }
+        
+        .timer-controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        button {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        button:hover {
+            background: #ff5252;
+            transform: translateY(-2px);
+        }
+        
+        .teams-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .team {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            flex: 1;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .team-name {
+            font-size: 1.8rem;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .score {
+            font-size: 4rem;
+            font-weight: bold;
+            margin: 20px 0;
+            color: #ffeb3b;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        
+        .score-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .score-btn {
+            background: #4caf50;
+            padding: 10px 15px;
+            font-size: 1.1rem;
+        }
+        
+        .score-btn:hover {
+            background: #45a049;
+        }
+        
+        .fouls {
+            margin-top: 20px;
+            font-size: 1.2rem;
+        }
+        
+        .foul-btn {
+            background: #ff9800;
+            margin-left: 10px;
+        }
+        
+        .foul-btn:hover {
+            background: #e68900;
+        }
+        
+        .history {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .history h2 {
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .history-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .history-item {
+            padding: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .reset-btn {
+            background: #f44336;
+            display: block;
+            margin: 20px auto;
+            padding: 12px 25px;
+            font-size: 1.2rem;
+        }
+        
+        .reset-btn:hover {
+            background: #d32f2f;
+        }
+        
+        @media (max-width: 768px) {
+            .teams-container {
+                flex-direction: column;
+            }
+            
+            .game-info {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏀 篮球计分系统</h1>
+            <p>实时记录比赛得分、犯规和时间</p>
+        </header>
+        
+        <div class="game-info">
+            <div class="timer">
+                <div id="time-display">12:00</div>
+                <div class="timer-controls">
+                    <button id="start-timer">开始</button>
+                    <button id="pause-timer">暂停</button>
+                    <button id="reset-timer">重置</button>
+                </div>
+            </div>
+            <div class="period">
+                <div>第 <span id="period-display">1</span> 节</div>
+                <div class="timer-controls">
+                    <button id="prev-period">上一节</button>
+                    <button id="next-period">下一节</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="teams-container">
+            <div class="team" id="team-a">
+                <h2 class="team-name">主队</h2>
+                <div class="score" id="score-a">0</div>
+                <div class="score-buttons">
+                    <button class="score-btn" data-points="1" data-team="a">+1 分</button>
+                    <button class="score-btn" data-points="2" data-team="a">+2 分</button>
+                    <button class="score-btn" data-points="3" data-team="a">+3 分</button>
+                </div>
+                <div class="fouls">
+                    犯规: <span id="fouls-a">0</span>
+                    <button class="foul-btn" data-team="a">+ 犯规</button>
+                </div>
+            </div>
+            
+            <div class="team" id="team-b">
+                <h2 class="team-name">客队</h2>
+                <div class="score" id="score-b">0</div>
+                <div class="score-buttons">
+                    <button class="score-btn" data-points="1" data-team="b">+1 分</button>
+                    <button class="score-btn" data-points="2" data-team="b">+2 分</button>
+                    <button class="score-btn" data-points="3" data-team="b">+3 分</button>
+                </div>
+                <div class="fouls">
+                    犯规: <span id="fouls-b">0</span>
+                    <button class="foul-btn" data-team="b">+ 犯规</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="history">
+            <h2>比赛记录</h2>
+            <div class="history-list" id="history-list">
+                <div class="history-item">比赛开始！</div>
+            </div>
+        </div>
+        
+        <button class="reset-btn" id="reset-game">重置比赛</button>
+    </div>
+
+    <script>
+        // 游戏状态
+        const gameState = {
+            teamA: {
+                score: 0,
+                fouls: 0,
+                name: "主队"
+            },
+            teamB: {
+                score: 0,
+                fouls: 0,
+                name: "客队"
+            },
+            period: 1,
+            time: 12 * 60, // 12分钟，以秒为单位
+            timerRunning: false,
+            timerInterval: null
+        };
+
+        // DOM元素
+        const timeDisplay = document.getElementById('time-display');
+        const periodDisplay = document.getElementById('period-display');
+        const scoreA = document.getElementById('score-a');
+        const scoreB = document.getElementById('score-b');
+        const foulsA = document.getElementById('fouls-a');
+        const foulsB = document.getElementById('fouls-b');
+        const historyList = document.getElementById('history-list');
+
+        // 初始化
+        function init() {
+            updateDisplay();
+            
+            // 事件监听器
+            document.querySelectorAll('.score-btn').forEach(button => {
+                button.addEventListener('click', handleScore);
+            });
+            
+            document.querySelectorAll('.foul-btn').forEach(button => {
+                button.addEventListener('click', handleFoul);
+            });
+            
+            document.getElementById('start-timer').addEventListener('click', startTimer);
+            document.getElementById('pause-timer').addEventListener('click', pauseTimer);
+            document.getElementById('reset-timer').addEventListener('click', resetTimer);
+            document.getElementById('prev-period').addEventListener('click', prevPeriod);
+            document.getElementById('next-period').addEventListener('click', nextPeriod);
+            document.getElementById('reset-game').addEventListener('click', resetGame);
+        }
+
+        // 处理得分
+        function handleScore(event) {
+            const points = parseInt(event.target.getAttribute('data-points'));
+            const team = event.target.getAttribute('data-team');
+            
+            if (team === 'a') {
+                gameState.teamA.score += points;
+                addHistory(`${gameState.teamA.name} 得到 ${points} 分`);
+            } else {
+                gameState.teamB.score += points;
+                addHistory(`${gameState.teamB.name} 得到 ${points} 分`);
+            }
+            
+            updateDisplay();
+        }
+
+        // 处理犯规
+        function handleFoul(event) {
+            const team = event.target.getAttribute('data-team');
+            
+            if (team === 'a') {
+                gameState.teamA.fouls += 1;
+                addHistory(`${gameState.teamA.name} 犯规，当前犯规数: ${gameState.teamA.fouls}`);
+            } else {
+                gameState.teamB.fouls += 1;
+                addHistory(`${gameState.teamB.name} 犯规，当前犯规数: ${gameState.teamB.fouls}`);
+            }
+            
+            updateDisplay();
+        }
+
+        // 开始计时器
+        function startTimer() {
+            if (!gameState.timerRunning) {
+                gameState.timerRunning = true;
+                gameState.timerInterval = setInterval(() => {
+                    if (gameState.time > 0) {
+                        gameState.time--;
+                        updateTimeDisplay();
+                    } else {
+                        pauseTimer();
+                        addHistory(`第 ${gameState.period} 节结束`);
+                    }
+                }, 1000);
+            }
+        }
+
+        // 暂停计时器
+        function pauseTimer() {
+            gameState.timerRunning = false;
+            clearInterval(gameState.timerInterval);
+        }
+
+        // 重置计时器
+        function resetTimer() {
+            pauseTimer();
+            gameState.time = 12 * 60;
+            updateTimeDisplay();
+        }
+
+        // 上一节
+        function prevPeriod() {
+            if (gameState.period > 1) {
+                gameState.period--;
+                updatePeriodDisplay();
+                resetTimer();
+                addHistory(`切换到第 ${gameState.period} 节`);
+            }
+        }
+
+        // 下一节
+        function nextPeriod() {
+            if (gameState.period < 4) {
+                gameState.period++;
+                updatePeriodDisplay();
+                resetTimer();
+                addHistory(`切换到第 ${gameState.period} 节`);
+            }
+        }
+
+        // 重置比赛
+        function resetGame() {
+            gameState.teamA.score = 0;
+            gameState.teamB.score = 0;
+            gameState.teamA.fouls = 0;
+            gameState.teamB.fouls = 0;
+            gameState.period = 1;
+            resetTimer();
+            historyList.innerHTML = '<div class="history-item">比赛开始！</div>';
+            updateDisplay();
+        }
+
+        // 更新时间显示
+        function updateTimeDisplay() {
+            const minutes = Math.floor(gameState.time / 60);
+            const seconds = gameState.time % 60;
+            timeDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        // 更新节数显示
+        function updatePeriodDisplay() {
+            periodDisplay.textContent = gameState.period;
+        }
+
+        // 更新显示
+        function updateDisplay() {
+            scoreA.textContent = gameState.teamA.score;
+            scoreB.textContent = gameState.teamB.score;
+            foulsA.textContent = gameState.teamA.fouls;
+            foulsB.textContent = gameState.teamB.fouls;
+            updateTimeDisplay();
+            updatePeriodDisplay();
+        }
+
+        // 添加历史记录
+        function addHistory(text) {
+            const historyItem = document.createElement('div');
+            historyItem.className = 'history-item';
+            historyItem.textContent = text;
+            historyList.appendChild(historyItem);
+            historyList.scrollTop = historyList.scrollHeight;
+        }
+
+        // 初始化应用
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
+<!-- ===== 代码结束 ===== -->
+
