@@ -1,4 +1,3 @@
-# fix_encoding.py
 import sys
 import os
 import io

@@ -1,4 +1,3 @@
-# Maink.py - 修复文件保存问题版本
 try:
     from fix_encoding import fix_all_encoding
     fix_all_encoding()
@@ -39,7 +38,7 @@ if sys.platform == 'win32':
 class CodeEditorApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("聚源仓-Version 1.0.5-开源版本")
+        self.root.title("聚源仓-Version 1.0.6-开源版本")  # 更新版本号
         self.root.geometry("1200x800")
         
         if os.path.exists("./Resources/app.ico"):
@@ -60,6 +59,7 @@ class CodeEditorApp:
         self.toolbar = None
         self.main_container = None
         self.ai_panel = None
+        self.right_click_menu = None
         
         # 工具栏项目（新增三个功能）
         self.toolbar_items = [
@@ -85,21 +85,23 @@ class CodeEditorApp:
         self.show_welcome_message()
 
     def setup_api_key(self):
-        """设置DeepSeek API密钥"""
+        """设置DeepSeek API密钥（主备双API）"""
         try:
             import ai_compiler
             
-            api_key = "你的Deepseek API"
+            primary_api_key = "你的Deepseek API"  # 主API
+            backup_api_key = "你的备用Deepseek API"  # 备用API
             
-            if not api_key or api_key == "你的Deepseek API":
+            if (not primary_api_key or primary_api_key == "你的Deepseek API") and \
+               (not backup_api_key or backup_api_key == "你的备用Deepseek API"):
                 print("警告: 未设置有效的API密钥")
                 return False
                 
-            success = ai_compiler.validate_and_set_api(api_key)
+            success = ai_compiler.set_api_keys(primary_api_key, backup_api_key)
             if success:
-                print("API密钥设置成功")
-                os.environ['DEEPSEEK_API_KEY'] = api_key
-                os.environ['OPENAI_API_KEY'] = api_key
+                print("API密钥设置成功 - 主备双API模式")
+                os.environ['DEEPSEEK_API_KEY'] = primary_api_key
+                os.environ['DEEPSEEK_BACKUP_API_KEY'] = backup_api_key or ""
                 return True
             else:
                 print("API密钥设置失败，请检查密钥是否正确")
@@ -116,7 +118,7 @@ class CodeEditorApp:
         """获取API密钥"""
         try:
             import ai_compiler
-            return ai_compiler._global_compiler.api_key
+            return ai_compiler._global_compiler.primary_api_key
         except:
             return None
 
@@ -225,6 +227,152 @@ class CodeEditorApp:
         
         # 绑定事件
         self.code_text.bind("<KeyRelease>", self.on_code_change)
+        
+        # 添加右键菜单
+        self.setup_right_click_menu()
+
+    def setup_right_click_menu(self):
+        """设置右键菜单"""
+        # 创建右键菜单
+        self.right_click_menu = tk.Menu(self.code_text, tearoff=0)
+        
+        # 添加菜单项
+        self.right_click_menu.add_command(label="复制", command=self.copy_text)
+        self.right_click_menu.add_command(label="粘贴", command=self.paste_text)
+        self.right_click_menu.add_command(label="剪切", command=self.cut_text)
+        self.right_click_menu.add_separator()
+        self.right_click_menu.add_command(label="全选", command=self.select_all)
+        self.right_click_menu.add_separator()
+        self.right_click_menu.add_command(label="运行选中代码", command=self.run_selected_code)
+        self.right_click_menu.add_command(label="AI分析选中代码", command=self.analyze_selected_code)
+        self.right_click_menu.add_separator()
+        self.right_click_menu.add_command(label="注释/取消注释", command=self.toggle_comment)
+        
+        # 绑定右键点击事件
+        self.code_text.bind("<Button-3>", self.show_right_click_menu)  # Button-3 是右键
+
+    def show_right_click_menu(self, event):
+        """显示右键菜单"""
+        try:
+            self.right_click_menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            self.right_click_menu.grab_release()
+
+    def copy_text(self):
+        """复制文本"""
+        try:
+            selected_text = self.code_text.get(tk.SEL_FIRST, tk.SEL_LAST)
+            self.root.clipboard_clear()
+            self.root.clipboard_append(selected_text)
+        except tk.TclError:
+            # 没有选中文本
+            pass
+
+    def paste_text(self):
+        """粘贴文本"""
+        try:
+            clipboard_text = self.root.clipboard_get()
+            self.code_text.insert(tk.INSERT, clipboard_text)
+        except tk.TclError:
+            pass
+
+    def cut_text(self):
+        """剪切文本"""
+        try:
+            selected_text = self.code_text.get(tk.SEL_FIRST, tk.SEL_LAST)
+            self.root.clipboard_clear()
+            self.root.clipboard_append(selected_text)
+            self.code_text.delete(tk.SEL_FIRST, tk.SEL_LAST)
+        except tk.TclError:
+            # 没有选中文本
+            pass
+
+    def select_all(self):
+        """全选文本"""
+        self.code_text.tag_add(tk.SEL, "1.0", tk.END)
+        self.code_text.mark_set(tk.INSERT, "1.0")
+        self.code_text.see(tk.INSERT)
+
+    def run_selected_code(self):
+        """运行选中的代码"""
+        try:
+            selected_text = self.code_text.get(tk.SEL_FIRST, tk.SEL_LAST)
+            if selected_text:
+                # 创建临时文件运行选中的代码
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, encoding='utf-8') as f:
+                    f.write(selected_text)
+                    temp_file = f.name
+                
+                # 在终端中运行
+                if sys.platform == 'win32':
+                    cmd = f'start cmd /K "python \"{temp_file}\" && pause && del \"{temp_file}\""'
+                    subprocess.Popen(cmd, shell=True)
+                else:
+                    cmd = f'python3 "{temp_file}"'
+                    if sys.platform == 'darwin':  # macOS
+                        applescript = f'''
+                        tell application "Terminal"
+                            activate
+                            do script "{cmd} && echo '程序执行完毕，按任意键退出...' && read && rm \"{temp_file}\""
+                        end tell
+                        '''
+                        subprocess.Popen(['osascript', '-e', applescript])
+                    else:  # Linux
+                        subprocess.Popen(['gnome-terminal', '--', 'bash', '-c', f'{cmd} && echo "程序执行完毕，按任意键退出..." && read && rm "{temp_file}"'])
+                
+                self.show_info_message("正在运行选中代码...")
+            else:
+                self.show_info_message("请先选择要运行的代码")
+        except Exception as e:
+            self.show_info_message(f"运行选中代码失败: {str(e)}", "error")
+
+    def analyze_selected_code(self):
+        """AI分析选中的代码"""
+        try:
+            selected_text = self.code_text.get(tk.SEL_FIRST, tk.SEL_LAST)
+            if selected_text:
+                self.add_chat_message("你", "请分析以下代码：\n" + selected_text)
+                threading.Thread(target=self.analyze_code_thread, 
+                               args=(selected_text,), daemon=True).start()
+            else:
+                self.show_info_message("请先选择要分析的代码")
+        except Exception as e:
+            self.show_info_message(f"分析代码失败: {str(e)}", "error")
+
+    def toggle_comment(self):
+        """注释/取消注释选中的代码"""
+        try:
+            selected_text = self.code_text.get(tk.SEL_FIRST, tk.SEL_LAST)
+            if not selected_text:
+                return
+            
+            lines = selected_text.split('\n')
+            all_commented = all(line.strip().startswith('#') for line in lines if line.strip())
+            
+            new_lines = []
+            for line in lines:
+                if all_commented:
+                    # 取消注释
+                    if line.strip().startswith('#') and line.strip()[1:].strip():
+                        new_lines.append(line.replace('#', '', 1))
+                    else:
+                        new_lines.append(line)
+                else:
+                    # 添加注释
+                    if line.strip():
+                        new_lines.append('# ' + line)
+                    else:
+                        new_lines.append(line)
+            
+            new_text = '\n'.join(new_lines)
+            
+            # 替换选中的文本
+            self.code_text.delete(tk.SEL_FIRST, tk.SEL_LAST)
+            self.code_text.insert(tk.SEL_FIRST, new_text)
+            
+        except tk.TclError:
+            # 没有选中文本
+            pass
 
     def setup_ai_panel(self, parent):
         """设置右侧AI面板"""
@@ -232,7 +380,7 @@ class CodeEditorApp:
         ai_header = ttk.Frame(parent)
         ai_header.pack(fill=tk.X, padx=10, pady=10)
         
-        tk.Label(ai_header, text="聚源仓AI助手\nVersion1.0.5", font=('等线', 14, 'bold')).pack()
+        tk.Label(ai_header, text="聚源仓AI助手\nVersion1.0.6", font=('等线', 14, 'bold')).pack()
         
         # 隐藏/显示AI面板按钮
         self.toggle_ai_btn = ttk.Button(ai_header, text="◀", width=3, command=self.toggle_ai_panel)
@@ -249,6 +397,7 @@ class CodeEditorApp:
             ("生成HTML", self.generate_html_template),
             ("调试代码", self.debug_current_code),
             ("代码审查", self.review_current_code),
+            ("设置API密钥", self.setup_api_dialog),  # 新增API设置
             ("打包exe", self.package_to_exe),
             ("安装库", self.install_library_dialog),
             ("打开终端", self.open_terminal)
@@ -298,9 +447,78 @@ class CodeEditorApp:
 • 一键打包Python程序为exe
 • 一键安装第三方库
 • 打开系统终端
+• 设置主备双API密钥（新增功能）
 
 请描述您的问题或需要帮助的代码部分。"""
         self.add_chat_message("AI", welcome_msg)
+
+    def setup_api_dialog(self):
+        """打开API设置对话框"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("设置DeepSeek API密钥")
+        dialog.geometry("500x300")
+        dialog.transient(self.root)
+        
+        main_frame = ttk.Frame(dialog, padding=20)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        tk.Label(main_frame, text="DeepSeek API密钥设置", 
+                 font=('等线', 14, 'bold')).pack(pady=10)
+        
+        # 主API
+        ttk.Label(main_frame, text="主API密钥:").pack(anchor='w', pady=(10, 5))
+        primary_api_entry = ttk.Entry(main_frame, width=50, show="*")
+        primary_api_entry.pack(fill=tk.X, pady=5)
+        
+        # 备用API
+        ttk.Label(main_frame, text="备用API密钥 (可选):").pack(anchor='w', pady=(10, 5))
+        backup_api_entry = ttk.Entry(main_frame, width=50, show="*")
+        backup_api_entry.pack(fill=tk.X, pady=5)
+        
+        # 说明文字
+        help_text = """说明：
+• 主API密钥：必须填写，用于主要的AI功能
+• 备用API密钥：可选，当主API出现问题时自动切换
+• 获取API密钥：访问 https://platform.deepseek.com/
+• 密钥安全：密钥仅保存在本地，不会上传到服务器"""
+        
+        help_label = tk.Label(main_frame, text=help_text, font=('等线', 9),
+                             justify=tk.LEFT, foreground="gray")
+        help_label.pack(anchor='w', pady=10)
+        
+        def save_api_keys():
+            primary_key = primary_api_entry.get().strip()
+            backup_key = backup_api_entry.get().strip()
+            
+            if not primary_key:
+                messagebox.showwarning("警告", "请输入主API密钥")
+                return
+            
+            try:
+                import ai_compiler
+                success = ai_compiler.set_api_keys(primary_key, backup_key)
+                if success:
+                    messagebox.showinfo("成功", "API密钥设置成功")
+                    dialog.destroy()
+                    # 更新环境变量
+                    os.environ['DEEPSEEK_API_KEY'] = primary_key
+                    if backup_key:
+                        os.environ['DEEPSEEK_BACKUP_API_KEY'] = backup_key
+                else:
+                    messagebox.showerror("错误", "API密钥设置失败，请检查密钥是否正确")
+            except Exception as e:
+                messagebox.showerror("错误", f"设置API密钥失败: {str(e)}")
+        
+        btn_frame = ttk.Frame(main_frame)
+        btn_frame.pack(pady=20)
+        
+        ttk.Button(btn_frame, text="保存", command=save_api_keys).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text="取消", command=dialog.destroy).pack(side=tk.LEFT, padx=5)
+        
+        # 如果已有API密钥，预填充
+        current_api = self.get_api_key()
+        if current_api and current_api != "你的Deepseek API":
+            primary_api_entry.insert(0, current_api)
 
     def toggle_ai_panel(self):
         """切换AI面板显示/隐藏"""
@@ -328,6 +546,16 @@ class CodeEditorApp:
 # • 一键打包为exe文件
 # • 一键安装第三方库
 # • 打开系统终端
+# • 右键菜单操作（新增功能）
+# • 主备双API支持（新增功能）
+
+# 右键菜单功能：
+# 在编辑器中右键点击可打开快捷菜单，包含：
+# - 复制、粘贴、剪切
+# - 全选
+# - 运行选中代码
+# - AI分析选中代码
+# - 注释/取消注释
 
 # 新建Python文件时显示的示例代码：
 
@@ -579,7 +807,9 @@ if __name__ == "__main__":
         """打开安装库的对话框"""
         dialog = tk.Toplevel(self.root)
         dialog.title("安装第三方库")
-        dialog.geometry("400x300")
+        dialog.geometry("400x350")
+        dialog.resizable(False,False)
+        dialog.iconbitmap("./Resources/app.ico")
         dialog.transient(self.root)
         
         main_frame = ttk.Frame(dialog, padding=20)
@@ -928,12 +1158,13 @@ if __name__ == "__main__":
             print(f"获取编辑器内容失败: {e}")
             return ""
 
-    # 工具栏函数
     def new_file_dialog(self):
         """新建文件对话框"""
         dialog = tk.Toplevel(self.root)
         dialog.title("新建文件")
-        dialog.geometry("300x200")
+        dialog.geometry("300x250")
+        dialog.iconbitmap("./Resources/app.ico")
+        dialog.resizable(False,False)
         dialog.transient(self.root)
         
         main_frame = ttk.Frame(dialog, padding=20)
@@ -1013,6 +1244,16 @@ if __name__ == "__main__":
 # • 一键打包为exe文件
 # • 一键安装第三方库
 # • 打开系统终端
+# • 右键菜单操作（新增功能）
+# • 主备双API支持（新增功能）
+
+# 右键菜单功能：
+# 在编辑器中右键点击可打开快捷菜单，包含：
+# - 复制、粘贴、剪切
+# - 全选
+# - 运行选中代码
+# - AI分析选中代码
+# - 注释/取消注释
 
 # 新建Python文件时显示的示例代码：
 
@@ -1196,17 +1437,37 @@ if __name__ == "__main__":
             return False
 
     def show_about(self):
-        about_text = """Python聚源仓项目，是一款AI智能编译器，由骏骏爱编程开发，其他人辅助帮忙开发，具有AI分析代码，AI优化代码，AI上下文理解等功能，完全免费，完全免费开源。
-官网：https://www.juyuancang.cn
-反馈邮箱：junjunloveprogramming@juyuancang.cn
-"""
-        messagebox.showinfo("关于", about_text)
+        dialog = tk.Toplevel(self.root)
+        dialog.title("关于")
+        dialog.geometry("550x400")
+        dialog.iconbitmap("./Resources/app.ico")
+        dialog.resizable(False,False)
+        dialog.transient(self.root)
+        
+        main_frame = ttk.Frame(dialog, padding=20)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        tk.Label(main_frame, text="Python聚源仓项目，是一款AI智能编译器，由骏骏\n爱编程开发，其他人辅助帮忙开发，具有AI分析代码，A\nI优化代码，AI上下文理解等功能，完全免费，完全\n免费开源。\n官网：https://www.juyuancang.cn\n反馈邮箱：junjunloveprogramming@juyuancang.cn\n当前版本：1.0.6", font=('等线', 12)).pack(pady=10)
+
+        about_button = [
+            ("打开官网", self.open_official_website),
+            ("复制邮箱", self.copy_email), 
+        ]
+        
+        for text,command in about_button:
+            btn = ttk.Button(main_frame, text=text, command=command).pack(pady=10)
+
+    def open_official_website(self):
+        os.startfile("https://www.juyuancang.cn")
+
+    def copy_email(self):
+        pyperclip.copy("junjunloveprogramming@juyuancang.cn")
 
     def hidden_easter_egg(self):
         """隐藏彩蛋"""
         try:
             self.hidden_easter_egg_window = tk.Toplevel(self.root)
-            self.hidden_easter_egg_window.title("聚源仓团队彩蛋")
+            self.hidden_easter_egg_window.title("隐藏彩蛋")
             self.hidden_easter_egg_window.geometry("400x500")
             self.hidden_easter_egg_window.transient(self.root)
             if os.path.exists("./Resources/app.ico"):

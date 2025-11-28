@@ -1,4 +1,3 @@
-# fix_packaging_encoding.py
 import os
 import sys
 import subprocess

@@ -7,8 +7,8 @@
 Python聚源仓项目，是一款AI智能编译器，由骏骏爱编程开发，其他人辅助帮忙开发，具有AI分析代码，AI优化代码，AI上下文理解等功能，完全免费，完全免费开源。
 
 ## 版本
-【当前开源版版本】1.0.5
-【更新日志】UI重新设计，把原本的AI助手移动到界面右侧，取消运行信息和文件树，AI助手生成代码自动插入编辑处，优化了许多功能
+【当前开源版版本】1.0.6
+【更新日志】新增右键菜单和备用API，优化了部分功能
 
 ## 小Tips
 聚源仓1.0.3版本以上点击左上角聚源仓logo有我们聚源仓团队前端精心准备的彩蛋
@@ -18,10 +18,11 @@ Python聚源仓项目，是一款AI智能编译器，由骏骏爱编程开发，
 
 ## 设置DeepSeek API
 
-如果你要使用已经购买的Deepseek的API，请打开项目中的Maink.py文件，翻到92行，按照提示更换你的Deepseek API即可
+如果你要使用已经购买的Deepseek的API，请打开项目中的Maink.py文件，翻到92行和93行，按照提示更换你的Deepseek API即可
 
-```bash
-api_key = "你的Deepseek API"
+```Python
+primary_api_key = "你的Deepseek API"
+backup_api_key = "你的备用Deepseek API" 
 ```
 ## 参与聚源仓项目抖音
 

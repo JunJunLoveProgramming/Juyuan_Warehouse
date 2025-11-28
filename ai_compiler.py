@@ -1,26 +1,19 @@
-# ai_compiler.py
 import openai
 import os
 import re
 from typing import List, Dict, Any
 
 class SmartAICompiler:
-    def __init__(self, api_key=None):
-        self.api_key = api_key or os.getenv('DEEPSEEK_API_KEY') or os.getenv('OPENAI_API_KEY')
+    def __init__(self, primary_api_key=None, backup_api_key=None):
+        self.primary_api_key = primary_api_key or os.getenv('DEEPSEEK_API_KEY') or os.getenv('OPENAI_API_KEY')
+        self.backup_api_key = backup_api_key or os.getenv('DEEPSEEK_BACKUP_API_KEY')
+        self.current_api_key = self.primary_api_key
         self.conversation_history = []
         self.code_context = ""
         
         # 确保有API密钥时才创建客户端
-        if self.api_key and self.api_key != "你的Deepseek API":
-            try:
-                self.client = openai.OpenAI(
-                    api_key=self.api_key,
-                    base_url="https://api.deepseek.com/v1"
-                )
-                print("AI编译器初始化成功")
-            except Exception as e:
-                print(f"AI编译器初始化失败: {e}")
-                self.client = None
+        if self.primary_api_key and self.primary_api_key != "你的Deepseek API":
+            self.initialize_client()
         else:
             self.client = None
             print("警告: 未设置有效的API密钥，AI功能将不可用")
@@ -50,10 +43,44 @@ class SmartAICompiler:
 // 清晰的注释说明
 你的JavaScript代码
 对于复杂问题，请分步骤解释。"""
+
+    def initialize_client(self):
+        """初始化API客户端"""
+        try:
+            self.client = openai.OpenAI(
+                api_key=self.current_api_key,
+                base_url="https://api.deepseek.com/v1"
+            )
+            print("AI编译器初始化成功 - 使用API密钥:", self.current_api_key[:8] + "..." if self.current_api_key else "None")
+        except Exception as e:
+            print(f"AI编译器初始化失败: {e}")
+            self.client = None
+
+    def switch_to_backup_api(self):
+        """切换到备用API"""
+        if self.backup_api_key and self.backup_api_key != self.current_api_key:
+            print("切换到备用API...")
+            self.current_api_key = self.backup_api_key
+            self.initialize_client()
+            return True
+        return False
+
+    def set_api_keys(self, primary_api_key, backup_api_key=None):
+        """设置主备API密钥"""
+        self.primary_api_key = primary_api_key
+        self.backup_api_key = backup_api_key
+        self.current_api_key = self.primary_api_key
+        return self.initialize_client()
+
+    def validate_and_set_api(self, api_key):
+        """验证并设置API密钥（兼容旧版本）"""
+        return self.set_api_key(api_key)
+
     def set_api_key(self, api_key):
-        """设置API密钥"""
+        """设置API密钥（兼容旧版本）"""
         if api_key and api_key != "你的Deepseek API":
-            self.api_key = api_key
+            self.primary_api_key = api_key
+            self.current_api_key = self.primary_api_key
             try:
                 self.client = openai.OpenAI(
                     api_key=api_key,
@@ -68,10 +95,6 @@ class SmartAICompiler:
         else:
             print("无效的API密钥")
             return False
-
-    def validate_and_set_api(self, api_key):
-        """验证并设置API密钥"""
-        return self.set_api_key(api_key)
 
     def set_code_context(self, code):
         """设置当前代码上下文"""
@@ -336,8 +359,8 @@ class SmartAICompiler:
         return self._call_api(html_prompt)
     
     def _call_api(self, prompt):
-        """调用API的统一方法"""
-        if not self.api_key or self.api_key == "你的Deepseek API":
+        """调用API的统一方法，支持备用API切换"""
+        if not self.primary_api_key or self.primary_api_key == "你的Deepseek API":
             return "错误：请先设置有效的Deepseek API密钥"
         
         if self.client is None:
@@ -377,10 +400,24 @@ class SmartAICompiler:
             return ai_reply
             
         except openai.APITimeoutError:
+            # 超时错误，尝试切换API
+            if self.switch_to_backup_api():
+                return self._call_api(prompt)  # 重试
             return "请求超时，请稍后重试。"
+        except openai.RateLimitError:
+            # 频率限制错误，尝试切换API
+            if self.switch_to_backup_api():
+                return self._call_api(prompt)  # 重试
+            return "API调用频率超限，请稍后重试。"
         except openai.APIError as e:
+            # 其他API错误，尝试切换API
+            if self.switch_to_backup_api():
+                return self._call_api(prompt)  # 重试
             return f"API调用失败：{str(e)}"
         except openai.AuthenticationError:
+            # 认证错误，尝试切换API
+            if self.switch_to_backup_api():
+                return self._call_api(prompt)  # 重试
             return "API密钥错误，请检查密钥是否正确。"
         except Exception as e:
             return f"处理响应时出错：{str(e)}"
@@ -412,8 +449,12 @@ class SmartAICompiler:
 _global_compiler = SmartAICompiler()
 
 def set_api_key(api_key):
-    """设置API密钥"""
+    """设置API密钥（兼容旧版本）"""
     return _global_compiler.set_api_key(api_key)
+
+def set_api_keys(primary_api_key, backup_api_key=None):
+    """设置主备API密钥"""
+    return _global_compiler.set_api_keys(primary_api_key, backup_api_key)
 
 def set_current_code(code):
     """设置当前代码上下文"""
