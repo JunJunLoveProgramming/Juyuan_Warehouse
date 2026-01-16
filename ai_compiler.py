@@ -47,9 +47,12 @@ class SmartAICompiler:
     def initialize_client(self):
         """初始化API客户端"""
         try:
+            # 增加超时设置，支持长内容生成
+            import httpx
             self.client = openai.OpenAI(
                 api_key=self.current_api_key,
-                base_url="https://api.deepseek.com/v1"
+                base_url="https://api.deepseek.com/v1",
+                timeout=httpx.Timeout(60.0, read=120.0, write=60.0, connect=30.0)
             )
             print("AI编译器初始化成功 - 使用API密钥:", self.current_api_key[:8] + "..." if self.current_api_key else "None")
         except Exception as e:
@@ -82,9 +85,12 @@ class SmartAICompiler:
             self.primary_api_key = api_key
             self.current_api_key = self.primary_api_key
             try:
+                # 增加超时设置，支持长内容生成
+                import httpx
                 self.client = openai.OpenAI(
                     api_key=api_key,
-                    base_url="https://api.deepseek.com/v1"
+                    base_url="https://api.deepseek.com/v1",
+                    timeout=httpx.Timeout(60.0, read=120.0, write=60.0, connect=30.0)
                 )
                 print("API密钥设置成功")
                 return True
@@ -234,7 +240,7 @@ class SmartAICompiler:
 5、给出测试建议"""
         return self._call_api(debug_prompt)
 
-    def chat_with_context(self, message, code_context=None):
+    def chat_with_context(self, message, code_context=None, stream_callback=None):
         """带上下文的智能对话"""
         if code_context:
             chat_prompt = f"""当前代码上下文：
@@ -256,7 +262,7 @@ class SmartAICompiler:
 4、进一步的学习资源（如需要）
 
 5、友好的语气和专业的表达"""
-        return self._call_api(chat_prompt)
+        return self._call_api(chat_prompt, stream_callback=stream_callback)
 
     def suggest_improvements(self, code):
         """提供代码改进建议"""
@@ -358,13 +364,19 @@ class SmartAICompiler:
 请提供可以直接运行的完整代码。"""
         return self._call_api(html_prompt)
     
-    def _call_api(self, prompt):
-        """调用API的统一方法，支持备用API切换"""
+    def _call_api(self, prompt, stream_callback=None):
+        """调用API的统一方法，支持备用API切换和流式返回"""
         if not self.primary_api_key or self.primary_api_key == "你的Deepseek API":
-            return "错误：请先设置有效的Deepseek API密钥"
+            error_msg = "错误：请先设置有效的Deepseek API密钥"
+            if stream_callback:
+                stream_callback(error_msg)
+            return error_msg
         
         if self.client is None:
-            return "错误：AI客户端未正确初始化，请检查API密钥"
+            error_msg = "错误：AI客户端未正确初始化，请检查API密钥"
+            if stream_callback:
+                stream_callback(error_msg)
+            return error_msg
         
         # 构建消息历史
         messages = [
@@ -377,50 +389,101 @@ class SmartAICompiler:
             messages.insert(1, msg)
         
         try:
-            response = self.client.chat.completions.create(
-                model="deepseek-coder",
-                messages=messages,
-                temperature=0.7,
-                max_tokens=4000,
-                stream=False
-            )
-            
-            ai_reply = response.choices[0].message.content
-            
-            # 保存到对话历史
-            self.conversation_history.extend([
-                {"role": "user", "content": prompt},
-                {"role": "assistant", "content": ai_reply}
-            ])
-            
-            # 限制对话历史长度
-            if len(self.conversation_history) > 20:
-                self.conversation_history = self.conversation_history[-20:]
-            
-            return ai_reply
+            if stream_callback:
+                # 流式返回模式
+                ai_reply = ""
+                try:
+                    for chunk in self.client.chat.completions.create(
+                        model="deepseek-coder",
+                        messages=messages,
+                        temperature=0.7,
+                        max_tokens=8000,  # 增加max_tokens值，支持更长内容生成
+                        stream=True
+                    ):
+                        if chunk.choices[0].delta.content:
+                            content = chunk.choices[0].delta.content
+                            ai_reply += content
+                            # 调用回调函数实时处理内容
+                            stream_callback(content)
+                except Exception as e:
+                    # 在流式处理中发生错误，仍然返回已生成的内容
+                    error_msg = f"\n\n处理响应时出错：{str(e)}"
+                    stream_callback(error_msg)
+                    ai_reply += error_msg
+                    return ai_reply
+                
+                # 保存到对话历史
+                self.conversation_history.extend([
+                    {"role": "user", "content": prompt},
+                    {"role": "assistant", "content": ai_reply}
+                ])
+                
+                # 限制对话历史长度
+                if len(self.conversation_history) > 20:
+                    self.conversation_history = self.conversation_history[-20:]
+                
+                return ai_reply
+            else:
+                # 非流式返回模式
+                response = self.client.chat.completions.create(
+                    model="deepseek-coder",
+                    messages=messages,
+                    temperature=0.7,
+                    max_tokens=8000,  # 增加max_tokens值，支持更长内容生成
+                    stream=False
+                )
+                
+                ai_reply = response.choices[0].message.content
+                
+                # 保存到对话历史
+                self.conversation_history.extend([
+                    {"role": "user", "content": prompt},
+                    {"role": "assistant", "content": ai_reply}
+                ])
+                
+                # 限制对话历史长度
+                if len(self.conversation_history) > 20:
+                    self.conversation_history = self.conversation_history[-20:]
+                
+                return ai_reply
             
         except openai.APITimeoutError:
             # 超时错误，尝试切换API
             if self.switch_to_backup_api():
-                return self._call_api(prompt)  # 重试
-            return "请求超时，请稍后重试。"
+                return self._call_api(prompt, stream_callback)  # 重试
+            error_msg = "请求超时，请稍后重试。"
+            if stream_callback:
+                stream_callback(error_msg)
+            return error_msg
         except openai.RateLimitError:
             # 频率限制错误，尝试切换API
             if self.switch_to_backup_api():
-                return self._call_api(prompt)  # 重试
-            return "API调用频率超限，请稍后重试。"
+                return self._call_api(prompt, stream_callback)  # 重试
+            error_msg = "API调用频率超限，请稍后重试。"
+            if stream_callback:
+                stream_callback(error_msg)
+            return error_msg
         except openai.APIError as e:
             # 其他API错误，尝试切换API
             if self.switch_to_backup_api():
-                return self._call_api(prompt)  # 重试
-            return f"API调用失败：{str(e)}"
+                return self._call_api(prompt, stream_callback)  # 重试
+            error_msg = f"API调用失败：{str(e)}"
+            if stream_callback:
+                stream_callback(error_msg)
+            return error_msg
         except openai.AuthenticationError:
             # 认证错误，尝试切换API
             if self.switch_to_backup_api():
-                return self._call_api(prompt)  # 重试
-            return "API密钥错误，请检查密钥是否正确。"
+                return self._call_api(prompt, stream_callback)  # 重试
+            error_msg = "API密钥错误，请检查密钥是否正确。"
+            if stream_callback:
+                stream_callback(error_msg)
+            return error_msg
         except Exception as e:
-            return f"处理响应时出错：{str(e)}"
+            error_msg = f"处理响应时出错：{str(e)}"
+            if stream_callback:
+                stream_callback(error_msg)
+            return error_msg
 
     def extract_code_blocks(self, text):
         """从回复中提取代码块"""
@@ -472,9 +535,9 @@ def optimize(code):
     """优化代码"""
     return _global_compiler.optimize_code(code)
 
-def chat(message, code_context=None):
+def chat(message, code_context=None, stream_callback=None):
     """AI聊天"""
-    return _global_compiler.chat_with_context(message, code_context)
+    return _global_compiler.chat_with_context(message, code_context, stream_callback=stream_callback)
 
 def suggest_improvements(code):
     """提供改进建议"""
