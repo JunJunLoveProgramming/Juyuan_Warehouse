@@ -38,7 +38,7 @@ if sys.platform == 'win32':
 class CodeEditorApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("聚源仓-Version 1.0.7")  # 更新版本号
+        self.root.title("聚源仓-Version 1.0.8")  # 更新版本号
         self.root.geometry("1200x800")
         
         if os.path.exists("./Resources/app.ico"):
@@ -104,8 +104,7 @@ class CodeEditorApp:
             ("保存", './Resources/save.png', self.save_file),
             ("小源", './Resources/ai.png', self.toggle_ai_panel),
             ("运行", './Resources/run.png', self.run_current_file),
-            ("打包exe", './Resources/open.png', self.package_to_exe),
-            ("安装库", './Resources/open.png', self.install_library),
+            ("Python专区", './Resources/open.png', self.show_python_zone),
             ("关于", './Resources/info.png', self.show_about)
         ]
         
@@ -156,9 +155,14 @@ class CodeEditorApp:
                          fg=self.vscode_theme['foreground'])
         run_menu.add_command(label="运行当前文件", command=self.run_current_file, accelerator="F5")
         run_menu.add_command(label="运行选中代码", command=self.run_selected_code)
-        run_menu.add_command(label="打包为exe", command=self.package_to_exe)
-        run_menu.add_command(label="安装库", command=self.install_library_dialog)
         self.menu_bar.add_cascade(label="运行", menu=run_menu)
+        
+        # Python专区菜单
+        python_menu = tk.Menu(self.menu_bar, tearoff=0,
+                            bg=self.vscode_theme['toolbar'],
+                            fg=self.vscode_theme['foreground'])
+        python_menu.add_command(label="Python专区", command=self.show_python_zone)
+        self.menu_bar.add_cascade(label="Python专区", menu=python_menu)
         
         # 视图菜单
         view_menu = tk.Menu(self.menu_bar, tearoff=0,
@@ -297,46 +301,9 @@ class CodeEditorApp:
         self.toolbar = ttk.Frame(parent)
         self.toolbar.pack(fill=tk.X, side=tk.TOP, padx=5, pady=5)
         
-        # 批量注册工具栏项目
-        self.image = []
-
-        if os.path.exists('./Resources/app.jpg'):
-            try:
-                img = Image.open('./Resources/app.jpg')
-                img = img.resize((60, 60))
-                self.image.append(ImageTk.PhotoImage(img))
-                tk.Button(self.toolbar, image=self.image[0], relief="flat", command=self.hidden_easter_egg,
-                         bg=self.vscode_theme['toolbar']).pack(side='left')
-            except Exception as e:
-                print(f"加载logo图片失败: {e}")
-                
-        for name, icon, command in self.toolbar_items:
-            try:
-                if icon is not None and os.path.exists(icon):
-                    ico = Image.open(icon).resize((30, 30))
-                    self.image.append(ImageTk.PhotoImage(ico))
-                    tk.Button(self.toolbar, text=name, command=command, font=('Consolas', 10),
-                              relief='flat', image=self.image[-1], compound='top',
-                              bg=self.vscode_theme['toolbar'],
-                              fg=self.vscode_theme['foreground'],
-                              activebackground=self.vscode_theme['button_hover'],
-                              activeforeground=self.vscode_theme['foreground']).pack(side=tk.LEFT, padx=2, pady=2)
-                else:
-                    tk.Button(self.toolbar, text=name, command=command, font=('Consolas', 10),
-                              relief='flat',
-                              bg=self.vscode_theme['toolbar'],
-                              fg=self.vscode_theme['foreground'],
-                              activebackground=self.vscode_theme['button_hover'],
-                              activeforeground=self.vscode_theme['foreground']).pack(side=tk.LEFT, padx=2, pady=2)
-            except Exception as e:
-                print(f"加载工具栏按钮失败 {name}: {e}")
-                tk.Button(self.toolbar, text=name, command=command, font=('Consolas', 10),
-                          relief='flat',
-                          bg=self.vscode_theme['toolbar'],
-                          fg=self.vscode_theme['foreground'],
-                          activebackground=self.vscode_theme['button_hover'],
-                          activeforeground=self.vscode_theme['foreground']).pack(side=tk.LEFT, padx=2, pady=2)
-                
+        # 创建工具栏按钮
+        self.create_toolbar_buttons()
+        
         # 创建主内容区域容器
         self.main_content_container = ttk.Frame(parent)
         self.main_content_container.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
@@ -384,10 +351,20 @@ class CodeEditorApp:
     
     def open_file_from_startup(self):
         """从启动界面打开文件"""
-        # 显示编辑器界面
-        self.show_editor_screen()
-        # 打开文件
-        self.open_file()
+        # 先打开文件选择对话框
+        file_path = filedialog.askopenfilename(
+            filetypes=[
+                ("Python Files", "*.py"),
+                ("HTML Files", "*.html;*.htm"),
+                ("Markdown Files", "*.md;*.markdown"),
+                ("Text Files", "*.txt"),
+                ("All Files", "*.*")
+            ]
+        )
+        if file_path:
+            # 如果用户选择了文件，才显示编辑器界面并打开文件
+            self.show_editor_screen()
+            self.open_file_from_path(file_path)
     
     def open_folder_from_startup(self):
         """从启动界面打开文件夹"""
@@ -395,6 +372,58 @@ class CodeEditorApp:
         self.show_editor_screen()
         # 这里可以添加打开文件夹的逻辑
         messagebox.showinfo("提示", "打开文件夹功能开发中")
+    
+    def create_toolbar_buttons(self):
+        """创建工具栏按钮"""
+        # 批量注册工具栏项目
+        self.image = []
+
+        if os.path.exists('./Resources/app.jpg'):
+            try:
+                img = Image.open('./Resources/app.jpg')
+                img = img.resize((60, 60))
+                self.image.append(ImageTk.PhotoImage(img))
+                tk.Button(self.toolbar, image=self.image[0], relief="flat", command=self.hidden_easter_egg,
+                         bg=self.vscode_theme['toolbar']).pack(side='left')
+            except Exception as e:
+                print(f"加载logo图片失败: {e}")
+                
+        for name, icon, command in self.toolbar_items:
+            try:
+                if name == "Python专区":
+                    if not self.current_file or not self.current_file.endswith('.py'):
+                        continue
+                if icon is not None and os.path.exists(icon):
+                    ico = Image.open(icon).resize((30, 30))
+                    self.image.append(ImageTk.PhotoImage(ico))
+                    tk.Button(self.toolbar, text=name, command=command, font=('Consolas', 10),
+                              relief='flat', image=self.image[-1], compound='top',
+                              bg=self.vscode_theme['toolbar'],
+                              fg=self.vscode_theme['foreground'],
+                              activebackground=self.vscode_theme['button_hover'],
+                              activeforeground=self.vscode_theme['foreground']).pack(side=tk.LEFT, padx=2, pady=2)
+                else:
+                    tk.Button(self.toolbar, text=name, command=command, font=('Consolas', 10),
+                              relief='flat',
+                              bg=self.vscode_theme['toolbar'],
+                              fg=self.vscode_theme['foreground'],
+                              activebackground=self.vscode_theme['button_hover'],
+                              activeforeground=self.vscode_theme['foreground']).pack(side=tk.LEFT, padx=2, pady=2)
+            except Exception as e:
+                print(f"加载工具栏按钮失败 {name}: {e}")
+                tk.Button(self.toolbar, text=name, command=command, font=('Consolas', 10),
+                          relief='flat',
+                          bg=self.vscode_theme['toolbar'],
+                          fg=self.vscode_theme['foreground'],
+                          activebackground=self.vscode_theme['button_hover'],
+                          activeforeground=self.vscode_theme['foreground']).pack(side=tk.LEFT, padx=2, pady=2)
+    
+    def refresh_toolbar(self):
+        """刷新工具栏以显示/隐藏Python专区按钮"""
+        if self.toolbar and hasattr(self, 'code_text') and self.code_text:
+            for widget in self.toolbar.winfo_children():
+                widget.destroy()
+            self.create_toolbar_buttons()
     
     def show_editor_screen(self):
         """显示编辑器界面"""
@@ -734,15 +763,9 @@ class CodeEditorApp:
                                       bg=self.vscode_theme['toolbar'],
                                       fg=self.vscode_theme['foreground'])
         self.file_type_label.pack(side=tk.LEFT, padx=10, pady=5)
-        
-        # 中间信息：行号和列号
-        self.position_label = tk.Label(self.status_bar, text="Ln 1, Col 1", font=('Consolas', 9),
-                                     bg=self.vscode_theme['toolbar'],
-                                     fg=self.vscode_theme['foreground'])
-        self.position_label.pack(side=tk.LEFT, padx=10, pady=5)
-        
+                
         # 右侧信息：版本号
-        self.version_label = tk.Label(self.status_bar, text="聚源仓 Version 1.0.7", font=('Consolas', 9),
+        self.version_label = tk.Label(self.status_bar, text="聚源仓 Version 1.0.8", font=('Consolas', 9),
                                    bg=self.vscode_theme['toolbar'],
                                    fg=self.vscode_theme['foreground'])
         self.version_label.pack(side=tk.RIGHT, padx=10, pady=5)
@@ -771,7 +794,7 @@ class CodeEditorApp:
         ai_header = ttk.Frame(self.ai_panel)
         ai_header.pack(fill=tk.X, padx=10, pady=10)
         
-        tk.Label(ai_header, text="小源\nVersion1.0.7", font=('Consolas', 14, 'bold'),
+        tk.Label(ai_header, text="小源\nVersion1.0.8", font=('Consolas', 14, 'bold'),
                 bg=self.vscode_theme['panel_bg'],
                 fg=self.vscode_theme['foreground']).pack()
         
@@ -1303,6 +1326,35 @@ class CodeEditorApp:
             
         except Exception as e:
             self.show_info_message(f"安装失败: {str(e)}", "error")
+
+    # === Python专区 ===
+    def show_python_zone(self):
+        """打开Python专区子窗口"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Python专区")
+        dialog.geometry("600x500")
+        dialog.resizable(False, False)
+        dialog.iconbitmap("./Resources/app.ico")
+        dialog.transient(self.root)
+        
+        main_frame = ttk.Frame(dialog, padding=20)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        tk.Label(main_frame, text="Python专区", font=('等线', 18, 'bold')).pack(pady=10)
+        
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(pady=20)
+        
+        ttk.Button(button_frame, text="打包为EXE", command=lambda: [dialog.destroy(), self.package_to_exe()], 
+                  width=20).pack(pady=10, ipadx=10, ipady=5)
+        ttk.Button(button_frame, text="安装第三方库", command=lambda: [dialog.destroy(), self.install_library_dialog()], 
+                  width=20).pack(pady=10, ipadx=10, ipady=5)
+        
+        info_frame = ttk.LabelFrame(main_frame, text="功能说明", padding=10)
+        info_frame.pack(fill=tk.BOTH, expand=True, pady=10)
+        
+        info_text = "打包为EXE：将Python文件打包成独立的可执行文件，无需安装Python环境即可运行。\n\n安装第三方库：快速安装Python第三方库，支持批量安装多个库。"
+        tk.Label(info_frame, text=info_text, font=('等线', 10), justify=tk.LEFT, wraplength=550).pack(anchor='w')
 
     # === 新增功能：打开系统终端 ===
     def open_terminal(self):
@@ -1922,12 +1974,20 @@ class CodeEditorApp:
             self.current_file = file_path
             self.current_file_type = file_type
             
+            # 确保代码编辑器存在
+            if not hasattr(self, 'code_text') or not self.code_text:
+                # 如果编辑器不存在，先显示编辑器界面
+                self.show_editor_screen()
+            
             # 更新编辑器内容
             self.code_text.delete(1.0, tk.END)
             self.code_text.insert(1.0, content)
             
             # 更新文件类型标签
             self.file_type_label.config(text=f"{file_type.upper()}文件: {filename}")
+            
+            # 刷新工具栏以显示/隐藏Python专区按钮
+            self.refresh_toolbar()
             
             self.show_info_message(f"已打开文件: {file_path}")
             if self.syntax_highlight_enabled:
@@ -2010,21 +2070,33 @@ class CodeEditorApp:
         main_frame = ttk.Frame(dialog, padding=20)
         main_frame.pack(fill=tk.BOTH, expand=True)
         
-        tk.Label(main_frame, text="Python聚源仓项目，是一款AI IDE，由骏骏爱编程开发，其\n他人辅助帮忙开发，具有AI分析代码，AI优化代码，AI上下\n文理解等功能，完全免费，完全免费开源。\n官网：https://www.juyuancang.cn\n反馈邮箱：junjunloveprogramming@juyuancang.cn\n当前版本：1.0.7", font=('等线', 12)).pack(pady=10)
+        tk.Label(main_frame, text="Python聚源仓项目，是一款AI IDE，由骏骏爱编程开发，其\n他人辅助帮忙开发，具有AI分析代码，AI优化代码，AI上下\n文理解等功能，完全免费，完全免费开源。\n官网：https://www.juyuancang.cn\n反馈邮箱：junjunloveprogramming@juyuancang.cn\n当前版本：1.0.8", font=('等线', 12)).pack(pady=10)
+
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(pady=10)
 
         about_button = [
             ("打开官网", self.open_official_website),
             ("复制邮箱", self.copy_email), 
+            ("投喂小源", self.give_reward),
+            ("意见反馈", self.feedback),
         ]
         
-        for text,command in about_button:
-            btn = ttk.Button(main_frame, text=text, command=command).pack(pady=10)
+        for i, (text, command) in enumerate(about_button):
+            btn = ttk.Button(button_frame, text=text, command=command)
+            btn.grid(row=i//2, column=i%2, padx=10, pady=10, ipadx=10, ipady=5)
 
     def open_official_website(self):
         os.startfile("https://www.juyuancang.cn")
 
     def copy_email(self):
         pyperclip.copy("junjunloveprogramming@juyuancang.cn")
+
+    def give_reward(self):
+        os.startfile("https://www.juyuancang.cn/image/zanshang.jpg")
+
+    def feedback(self):
+        os.startfile("https://v.wjx.cn/vm/exWh0RW.aspx#")
 
     def hidden_easter_egg(self):
         """隐藏彩蛋"""
