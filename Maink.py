@@ -11,6 +11,7 @@ import subprocess
 import sys
 import threading
 import queue
+import json
 from PIL import Image, ImageTk
 import time
 import ctypes
@@ -38,7 +39,616 @@ if sys.platform == 'win32':
 class CodeEditorApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("聚源仓-Version 1.0.8")  # 更新版本号
+        
+        # 多语言支持
+        self.languages = {
+            'zh-CN': {'name': '简体中文', 'encoding': 'utf-8'},
+            'zh-TW': {'name': '繁體中文', 'encoding': 'utf-8'},
+            'en-US': {'name': 'English', 'encoding': 'utf-8'}
+        }
+        
+        # 从配置文件读取语言设置
+        self.current_language = self.load_language_config()
+        
+        # 语言包
+        self.lang_pack = {
+            'zh-CN': {
+                'app_title': '聚源仓-Version 1.0.9',
+                'version': '聚源仓 Version 1.0.9',
+                'ai_version': '小源\nVersion1.0.9',
+                'about_text': '聚源仓，是一款AI IDE，由骏骏爱编程开发，其他人辅助帮\n忙开发，具有AI分析代码，AI优化代码，AI上下文理解等\n功能，完全免费，完全免费开源。\n官网：https://www.juyuancang.cn\n反馈邮箱：junjunloveprogramming@juyuancang.cn\n当前版本：1.0.9',
+                'file': '文件',
+                'edit': '编辑',
+                'view': '视图',
+                'tools': '工具',
+                'help': '帮助',
+                'new': '新建',
+                'open': '打开',
+                'save': '保存',
+                'save_as': '另存为',
+                'exit': '退出',
+                'undo': '撤销',
+                'redo': '重做',
+                'cut': '剪切',
+                'copy': '复制',
+                'paste': '粘贴',
+                'select_all': '全选',
+                'find': '查找',
+                'replace': '替换',
+                'ai_analysis': 'AI分析',
+                'ai_optimization': 'AI优化',
+                'ai_explanation': 'AI解释',
+                'ai_panel': '小源',
+                'run': '运行',
+                'debug': '调试',
+                'python_zone': 'Python专区',
+                'package_to_exe': '打包为EXE',
+                'install_library': '安装第三方库',
+                'feature_description': '功能说明',
+                'package_to_exe_description': '将Python文件打包成独立的可执行文件，无需安装Python环境即可运行。',
+                'install_library_description': '快速安装Python第三方库，支持批量安装多个库。',
+                'settings': '设置',
+                'language': '语言',
+                'about': '关于',
+                'simplified_chinese': '简体中文',
+                'traditional_chinese': '繁體中文',
+                'english': 'English',
+                'font': '字体',
+                'theme': '主题',
+                'encoding': '编码',
+                'line_numbers': '行号',
+                'word_wrap': '自动换行',
+                'status_bar': '状态栏',
+                'ai_panel': 'AI面板',
+                'terminal': '终端',
+                'project_explorer': '项目浏览器',
+                'search_results': '搜索结果',
+                'output': '输出',
+                'problems': '问题',
+                'debug_console': '调试控制台',
+                'git': 'Git',
+                'extension': '扩展',
+                'new_file': '新建文件',
+                'new_folder': '新建文件夹',
+                'open_folder': '打开文件夹',
+                'save_all': '全部保存',
+                'close': '关闭',
+                'close_all': '全部关闭',
+                'reopen_closed': '重新打开已关闭的文件',
+                'show_unsaved_changes': '显示未保存的更改',
+                'print': '打印',
+                'export': '导出',
+                'preferences': '首选项',
+                'keyboard_shortcuts': '键盘快捷键',
+                'user_snippets': '用户代码片段',
+                'settings_json': '设置 (JSON)',
+                'command_palette': '命令面板',
+                'go_to_line': '转到行',
+                'go_to_definition': '转到定义',
+                'find_in_files': '在文件中查找',
+                'replace_in_files': '在文件中替换',
+                'format_document': '格式化文档',
+                'format_selection': '格式化选择',
+                'indent': '缩进',
+                'outdent': '减少缩进',
+                'toggle_line_comment': '切换行注释',
+                'toggle_block_comment': '切换块注释',
+                'sort_lines': '排序行',
+                'reverse_lines': '反转行',
+                'join_lines': '合并行',
+                'split_line': '拆分线',
+                'duplicate_line': '复制行',
+                'delete_line': '删除行',
+                'move_line_up': '向上移动行',
+                'move_line_down': '向下移动行',
+                'insert_line_above': '在上方插入行',
+                'insert_line_below': '在下方插入行',
+                'select_line': '选择行',
+                'select_word': '选择单词',
+                'select_bracket': '选择括号内容',
+                'select_all_occurrences': '选择所有出现的位置',
+                'add_cursor_above': '在上方添加光标',
+                'add_cursor_below': '在下方添加光标',
+                'add_cursor_to_ends_of_selections': '在选择的末尾添加光标',
+                'cursor_left': '光标左移',
+                'cursor_right': '光标右移',
+                'cursor_up': '光标上移',
+                'cursor_down': '光标下移',
+                'cursor_word_left': '光标移到单词左侧',
+                'cursor_word_right': '光标移到单词右侧',
+                'cursor_line_start': '光标移到行首',
+                'cursor_line_end': '光标移到行尾',
+                'cursor_document_start': '光标移到文档开始',
+                'cursor_document_end': '光标移到文档结束',
+                'page_up': '上一页',
+                'page_down': '下一页',
+                'scroll_up': '向上滚动',
+                'scroll_down': '向下滚动',
+                'zoom_in': '放大',
+                'zoom_out': '缩小',
+                'reset_zoom': '重置缩放',
+                'toggle_full_screen': '切换全屏',
+                'toggle_zen_mode': '切换禅模式',
+                'toggle_integrated_terminal': '切换集成终端',
+                'toggle_sidebar': '切换侧边栏',
+                'toggle_panel': '切换面板',
+                'focus_terminal': '聚焦终端',
+                'focus_editor': '聚焦编辑器',
+                'focus_sidebar': '聚焦侧边栏',
+                'focus_panel': '聚焦面板',
+                'quick_open': '快速打开',
+                'new_window': '新建窗口',
+                'new_terminal': '新建终端',
+                'split_editor': '拆分编辑器',
+                'close_editor': '关闭编辑器',
+                'close_terminal': '关闭终端',
+                'kill_terminal': '终止终端',
+                'restart_terminal': '重启终端',
+                'run_python_file': '运行Python文件',
+                'debug_python_file': '调试Python文件',
+                'run_selection': '运行选择',
+                'run_cell': '运行单元格',
+                'debug_cell': '调试单元格',
+                'interrupt_kernel': '中断内核',
+                'restart_kernel': '重启内核',
+                'clear_output': '清除输出',
+                'show_hover': '显示悬停信息',
+                'show_definition_preview': '显示定义预览',
+                'show_references': '显示引用',
+                'show_call_hierarchy': '显示调用层次结构',
+                'show_type_hierarchy': '显示类型层次结构',
+                'rename': '重命名',
+                'refactor': '重构',
+                'extract_method': '提取方法',
+                'extract_variable': '提取变量',
+                'organize_imports': '组织导入',
+                'sort_imports': '排序导入',
+                'auto_import': '自动导入',
+                'generate_docstring': '生成文档字符串',
+                'format_on_save': '保存时格式化',
+                'linting': '代码检查',
+                'auto_save': '自动保存',
+                'hot_exit': '热退出',
+                'file_recovery': '文件恢复',
+                'workspace_trust': '工作区信任',
+                'extensions': '扩展',
+                'install_extension': '安装扩展',
+                'uninstall_extension': '卸载扩展',
+                'enable_extension': '启用扩展',
+                'disable_extension': '禁用扩展',
+                'reload_extension': '重新加载扩展',
+                'check_for_updates': '检查更新',
+                'install_update': '安装更新',
+                'restart_to_update': '重启以更新',
+                'feedback': '反馈',
+                'report_issue': '报告问题',
+                'request_feature': '请求功能',
+                'documentation': '文档',
+                'release_notes': '发行说明',
+                'privacy_policy': '隐私政策',
+                'terms_of_service': '服务条款',
+                'license': '许可证',
+                'contributors': '贡献者',
+                'donate': '捐赠',
+                'rate_us': '评价我们',
+                'share': '分享',
+                'help_center': '帮助中心',
+                'keyboard_shortcuts_reference': '键盘快捷键参考',
+                'tips_and_tricks': '提示和技巧',
+                'getting_started': '入门',
+                'user_guide': '用户指南',
+                'api_reference': 'API参考',
+                'faq': '常见问题',
+                'troubleshooting': '故障排除',
+                'contact_support': '联系支持',
+                'community_forum': '社区论坛',
+                'discord_server': 'Discord服务器',
+                'github_repository': 'GitHub仓库',
+                'twitter': 'Twitter',
+                'facebook': 'Facebook',
+                'instagram': 'Instagram',
+                'youtube': 'YouTube',
+                'send': '发送'
+            },
+            'zh-TW': {
+                'app_title': '聚源倉-Version 1.0.9',
+                'version': '聚源倉 Version 1.0.9',
+                'ai_version': '小源\nVersion1.0.9',
+                'about_text': '官網：https://www.juyuancang.cn\n反饋郵箱：junjunloveprogramming@juyuancang.cn\n當前版本：1.0.9',
+                'file': '檔案',
+                'edit': '編輯',
+                'view': '檢視',
+                'tools': '工具',
+                'help': '說明',
+                'new': '新建',
+                'open': '開啟',
+                'save': '儲存',
+                'save_as': '另存為',
+                'exit': '退出',
+                'undo': '撤銷',
+                'redo': '重做',
+                'cut': '剪下',
+                'copy': '複製',
+                'paste': '貼上',
+                'select_all': '全選',
+                'find': '尋找',
+                'replace': '取代',
+                'ai_analysis': 'AI分析',
+                'ai_optimization': 'AI優化',
+                'ai_explanation': 'AI解釋',
+                'ai_panel': '小源',
+                'run': '執行',
+                'debug': '除錯',
+                'python_zone': 'Python專區',
+                'package_to_exe': '打包為EXE',
+                'install_library': '安裝第三方庫',
+                'feature_description': '功能說明',
+                'package_to_exe_description': '將Python文件打包成獨立的可執行文件，無需安裝Python環境即可運行。',
+                'install_library_description': '快速安裝Python第三方庫，支持批量安裝多個庫。',
+                'settings': '設定',
+                'language': '語言',
+                'about': '關於',
+                'simplified_chinese': '簡體中文',
+                'traditional_chinese': '繁體中文',
+                'english': 'English',
+                'font': '字體',
+                'theme': '主題',
+                'encoding': '編碼',
+                'line_numbers': '行號',
+                'word_wrap': '自動換行',
+                'status_bar': '狀態列',
+                'ai_panel': 'AI面板',
+                'terminal': '終端機',
+                'project_explorer': '專案瀏覽器',
+                'search_results': '搜尋結果',
+                'output': '輸出',
+                'problems': '問題',
+                'debug_console': '除錯主控台',
+                'git': 'Git',
+                'extension': '延伸',
+                'new_file': '新建檔案',
+                'new_folder': '新建資料夾',
+                'open_folder': '開啟資料夾',
+                'save_all': '全部儲存',
+                'close': '關閉',
+                'close_all': '全部關閉',
+                'reopen_closed': '重新開啟已關閉的檔案',
+                'show_unsaved_changes': '顯示未儲存的變更',
+                'print': '列印',
+                'export': '匯出',
+                'preferences': '偏好設定',
+                'keyboard_shortcuts': '鍵盤快速鍵',
+                'user_snippets': '使用者程式碼片段',
+                'settings_json': '設定 (JSON)',
+                'command_palette': '命令面板',
+                'go_to_line': '移至行',
+                'go_to_definition': '移至定義',
+                'find_in_files': '在檔案中尋找',
+                'replace_in_files': '在檔案中取代',
+                'format_document': '格式化文件',
+                'format_selection': '格式化選擇',
+                'indent': '縮排',
+                'outdent': '減少縮排',
+                'toggle_line_comment': '切換行註解',
+                'toggle_block_comment': '切換區塊註解',
+                'sort_lines': '排序行',
+                'reverse_lines': '反轉行',
+                'join_lines': '合併行',
+                'split_line': '拆分線',
+                'duplicate_line': '複製行',
+                'delete_line': '刪除行',
+                'move_line_up': '向上移動行',
+                'move_line_down': '向下移動行',
+                'insert_line_above': '在上方插入行',
+                'insert_line_below': '在下方插入行',
+                'select_line': '選擇行',
+                'select_word': '選擇單字',
+                'select_bracket': '選擇括號內容',
+                'select_all_occurrences': '選擇所有出現的位置',
+                'add_cursor_above': '在上方新增游標',
+                'add_cursor_below': '在下方新增游標',
+                'add_cursor_to_ends_of_selections': '在選擇的末尾新增游標',
+                'cursor_left': '游標左移',
+                'cursor_right': '游標右移',
+                'cursor_up': '游標上移',
+                'cursor_down': '游標下移',
+                'cursor_word_left': '游標移到單字左側',
+                'cursor_word_right': '游標移到單字右側',
+                'cursor_line_start': '游標移到行首',
+                'cursor_line_end': '游標移到行尾',
+                'cursor_document_start': '游標移到文件開始',
+                'cursor_document_end': '游標移到文件結束',
+                'page_up': '上一頁',
+                'page_down': '下一頁',
+                'scroll_up': '向上捲動',
+                'scroll_down': '向下捲動',
+                'zoom_in': '放大',
+                'zoom_out': '縮小',
+                'reset_zoom': '重設縮放',
+                'toggle_full_screen': '切換全螢幕',
+                'toggle_zen_mode': '切換禪模式',
+                'toggle_integrated_terminal': '切換整合終端機',
+                'toggle_sidebar': '切換側邊欄',
+                'toggle_panel': '切換面板',
+                'focus_terminal': '聚焦終端機',
+                'focus_editor': '聚焦編輯器',
+                'focus_sidebar': '聚焦側邊欄',
+                'focus_panel': '聚焦面板',
+                'quick_open': '快速開啟',
+                'new_window': '新建視窗',
+                'new_terminal': '新建終端機',
+                'split_editor': '拆分編輯器',
+                'close_editor': '關閉編輯器',
+                'close_terminal': '關閉終端機',
+                'kill_terminal': '終止終端機',
+                'restart_terminal': '重新啟動終端機',
+                'run_python_file': '執行Python檔案',
+                'debug_python_file': '除錯Python檔案',
+                'run_selection': '執行選擇',
+                'run_cell': '執行儲存格',
+                'debug_cell': '除錯儲存格',
+                'interrupt_kernel': '中斷核心',
+                'restart_kernel': '重新啟動核心',
+                'clear_output': '清除輸出',
+                'show_hover': '顯示懸停資訊',
+                'show_definition_preview': '顯示定義預覽',
+                'show_references': '顯示參考',
+                'show_call_hierarchy': '顯示呼叫階層結構',
+                'show_type_hierarchy': '顯示類型階層結構',
+                'rename': '重新命名',
+                'refactor': '重構',
+                'extract_method': '提取方法',
+                'extract_variable': '提取變數',
+                'organize_imports': '組織匯入',
+                'sort_imports': '排序匯入',
+                'auto_import': '自動匯入',
+                'generate_docstring': '生成文件字串',
+                'format_on_save': '儲存時格式化',
+                'linting': '程式碼檢查',
+                'auto_save': '自動儲存',
+                'hot_exit': '熱退出',
+                'file_recovery': '檔案復原',
+                'workspace_trust': '工作區信任',
+                'extensions': '延伸',
+                'install_extension': '安裝延伸',
+                'uninstall_extension': '解除安裝延伸',
+                'enable_extension': '啟用延伸',
+                'disable_extension': '停用延伸',
+                'reload_extension': '重新載入延伸',
+                'check_for_updates': '檢查更新',
+                'install_update': '安裝更新',
+                'restart_to_update': '重新啟動以更新',
+                'feedback': '回饋',
+                'report_issue': '回報問題',
+                'request_feature': '請求功能',
+                'documentation': '文件',
+                'release_notes': '發行說明',
+                'privacy_policy': '隱私政策',
+                'terms_of_service': '服務條款',
+                'license': '授權',
+                'contributors': '貢獻者',
+                'donate': '捐贈',
+                'rate_us': '評價我們',
+                'share': '分享',
+                'help_center': '幫助中心',
+                'keyboard_shortcuts_reference': '鍵盤快速鍵參考',
+                'tips_and_tricks': '提示和技巧',
+                'getting_started': '入門',
+                'user_guide': '使用者指南',
+                'api_reference': 'API參考',
+                'faq': '常見問題',
+                'troubleshooting': '故障排除',
+                'contact_support': '聯絡支援',
+                'community_forum': '社群論壇',
+                'discord_server': 'Discord伺服器',
+                'github_repository': 'GitHub儲存庫',
+                'twitter': 'Twitter',
+                'facebook': 'Facebook',
+                'instagram': 'Instagram',
+                'youtube': 'YouTube',
+                'send': '發送'
+            },
+            'en-US': {
+                'app_title': 'Juyuan Warehouse-Version 1.0.9',
+                'version': 'Juyuan Warehouse Version 1.0.9',
+                'ai_version': 'XiaoYuan\nVersion1.0.9',
+                'about_text': 'Juyuan Warehouse is an AI IDE developed by JunJun Love\nProgramming, with assistance from others. It has the\nability to autonomously write code and is completely\nfree and open source.\nOfficial website: https://www.juyuancang.cn\nFeedback email: junjunloveprogramming@juyuancang.cn\nCurrent version: 1.0.9',
+                'file': 'File',
+                'edit': 'Edit',
+                'view': 'View',
+                'tools': 'Tools',
+                'help': 'Help',
+                'new': 'New',
+                'open': 'Open',
+                'save': 'Save',
+                'save_as': 'Save As',
+                'exit': 'Exit',
+                'undo': 'Undo',
+                'redo': 'Redo',
+                'cut': 'Cut',
+                'copy': 'Copy',
+                'paste': 'Paste',
+                'select_all': 'Select All',
+                'find': 'Find',
+                'replace': 'Replace',
+                'ai_analysis': 'AI Analysis',
+                'ai_optimization': 'AI Optimization',
+                'ai_explanation': 'AI Explanation',
+
+                'run': 'Run',
+                'debug': 'Debug',
+                'python_zone': 'Python Zone',
+                'package_to_exe': 'Package to EXE',
+                'install_library': 'Install Third-party Library',
+                'feature_description': 'Feature Description',
+                'package_to_exe_description': 'Package Python files into independent executable files that can run without installing Python environment.',
+                'install_library_description': 'Quickly install Python third-party libraries, support batch installation of multiple libraries.',
+                'settings': 'Settings',
+                'language': 'Language',
+                'about': 'About',
+                'simplified_chinese': 'Simplified Chinese',
+                'traditional_chinese': 'Traditional Chinese',
+                'english': 'English',
+                'font': 'Font',
+                'theme': 'Theme',
+                'encoding': 'Encoding',
+                'line_numbers': 'Line Numbers',
+                'word_wrap': 'Word Wrap',
+                'status_bar': 'Status Bar',
+                'ai_panel': 'AI Panel',
+                'terminal': 'Terminal',
+                'project_explorer': 'Project Explorer',
+                'search_results': 'Search Results',
+                'output': 'Output',
+                'problems': 'Problems',
+                'debug_console': 'Debug Console',
+                'git': 'Git',
+                'extension': 'Extension',
+                'new_file': 'New File',
+                'new_folder': 'New Folder',
+                'open_folder': 'Open Folder',
+                'save_all': 'Save All',
+                'close': 'Close',
+                'close_all': 'Close All',
+                'reopen_closed': 'Reopen Closed File',
+                'show_unsaved_changes': 'Show Unsaved Changes',
+                'print': 'Print',
+                'export': 'Export',
+                'preferences': 'Preferences',
+                'keyboard_shortcuts': 'Keyboard Shortcuts',
+                'user_snippets': 'User Snippets',
+                'settings_json': 'Settings (JSON)',
+                'command_palette': 'Command Palette',
+                'go_to_line': 'Go to Line',
+                'go_to_definition': 'Go to Definition',
+                'find_in_files': 'Find in Files',
+                'replace_in_files': 'Replace in Files',
+                'format_document': 'Format Document',
+                'format_selection': 'Format Selection',
+                'indent': 'Indent',
+                'outdent': 'Outdent',
+                'toggle_line_comment': 'Toggle Line Comment',
+                'toggle_block_comment': 'Toggle Block Comment',
+                'sort_lines': 'Sort Lines',
+                'reverse_lines': 'Reverse Lines',
+                'join_lines': 'Join Lines',
+                'split_line': 'Split Line',
+                'duplicate_line': 'Duplicate Line',
+                'delete_line': 'Delete Line',
+                'move_line_up': 'Move Line Up',
+                'move_line_down': 'Move Line Down',
+                'insert_line_above': 'Insert Line Above',
+                'insert_line_below': 'Insert Line Below',
+                'select_line': 'Select Line',
+                'select_word': 'Select Word',
+                'select_bracket': 'Select Bracket Content',
+                'select_all_occurrences': 'Select All Occurrences',
+                'add_cursor_above': 'Add Cursor Above',
+                'add_cursor_below': 'Add Cursor Below',
+                'add_cursor_to_ends_of_selections': 'Add Cursor to Ends of Selections',
+                'cursor_left': 'Cursor Left',
+                'cursor_right': 'Cursor Right',
+                'cursor_up': 'Cursor Up',
+                'cursor_down': 'Cursor Down',
+                'cursor_word_left': 'Cursor to Word Left',
+                'cursor_word_right': 'Cursor to Word Right',
+                'cursor_line_start': 'Cursor to Line Start',
+                'cursor_line_end': 'Cursor to Line End',
+                'cursor_document_start': 'Cursor to Document Start',
+                'cursor_document_end': 'Cursor to Document End',
+                'page_up': 'Page Up',
+                'page_down': 'Page Down',
+                'scroll_up': 'Scroll Up',
+                'scroll_down': 'Scroll Down',
+                'zoom_in': 'Zoom In',
+                'zoom_out': 'Zoom Out',
+                'reset_zoom': 'Reset Zoom',
+                'toggle_full_screen': 'Toggle Full Screen',
+                'toggle_zen_mode': 'Toggle Zen Mode',
+                'toggle_integrated_terminal': 'Toggle Integrated Terminal',
+                'toggle_sidebar': 'Toggle Sidebar',
+                'toggle_panel': 'Toggle Panel',
+                'focus_terminal': 'Focus Terminal',
+                'focus_editor': 'Focus Editor',
+                'focus_sidebar': 'Focus Sidebar',
+                'focus_panel': 'Focus Panel',
+                'quick_open': 'Quick Open',
+                'new_window': 'New Window',
+                'new_terminal': 'New Terminal',
+                'split_editor': 'Split Editor',
+                'close_editor': 'Close Editor',
+                'close_terminal': 'Close Terminal',
+                'kill_terminal': 'Kill Terminal',
+                'restart_terminal': 'Restart Terminal',
+                'run_python_file': 'Run Python File',
+                'debug_python_file': 'Debug Python File',
+                'run_selection': 'Run Selection',
+                'run_cell': 'Run Cell',
+                'debug_cell': 'Debug Cell',
+                'interrupt_kernel': 'Interrupt Kernel',
+                'restart_kernel': 'Restart Kernel',
+                'clear_output': 'Clear Output',
+                'show_hover': 'Show Hover',
+                'show_definition_preview': 'Show Definition Preview',
+                'show_references': 'Show References',
+                'show_call_hierarchy': 'Show Call Hierarchy',
+                'show_type_hierarchy': 'Show Type Hierarchy',
+                'rename': 'Rename',
+                'refactor': 'Refactor',
+                'extract_method': 'Extract Method',
+                'extract_variable': 'Extract Variable',
+                'organize_imports': 'Organize Imports',
+                'sort_imports': 'Sort Imports',
+                'auto_import': 'Auto Import',
+                'generate_docstring': 'Generate Docstring',
+                'format_on_save': 'Format on Save',
+                'linting': 'Linting',
+                'auto_save': 'Auto Save',
+                'hot_exit': 'Hot Exit',
+                'file_recovery': 'File Recovery',
+                'workspace_trust': 'Workspace Trust',
+                'extensions': 'Extensions',
+                'install_extension': 'Install Extension',
+                'uninstall_extension': 'Uninstall Extension',
+                'enable_extension': 'Enable Extension',
+                'disable_extension': 'Disable Extension',
+                'reload_extension': 'Reload Extension',
+                'check_for_updates': 'Check for Updates',
+                'install_update': 'Install Update',
+                'restart_to_update': 'Restart to Update',
+                'feedback': 'Feedback',
+                'report_issue': 'Report Issue',
+                'request_feature': 'Request Feature',
+                'documentation': 'Documentation',
+                'release_notes': 'Release Notes',
+                'privacy_policy': 'Privacy Policy',
+                'terms_of_service': 'Terms of Service',
+                'license': 'License',
+                'contributors': 'Contributors',
+                'donate': 'Donate',
+                'rate_us': 'Rate Us',
+                'share': 'Share',
+                'help_center': 'Help Center',
+                'keyboard_shortcuts_reference': 'Keyboard Shortcuts Reference',
+                'tips_and_tricks': 'Tips and Tricks',
+                'getting_started': 'Getting Started',
+                'user_guide': 'User Guide',
+                'api_reference': 'API Reference',
+                'faq': 'FAQ',
+                'troubleshooting': 'Troubleshooting',
+                'contact_support': 'Contact Support',
+                'community_forum': 'Community Forum',
+                'discord_server': 'Discord Server',
+                'github_repository': 'GitHub Repository',
+                'twitter': 'Twitter',
+                'facebook': 'Facebook',
+                'instagram': 'Instagram',
+                'youtube': 'YouTube',
+                'send': 'Send'
+            }
+        }
+        
+        self.root.title(self.lang_pack[self.current_language]['app_title'])  # 使用多语言标题
         self.root.geometry("1200x800")
         
         if os.path.exists("./Resources/app.ico"):
@@ -98,14 +708,16 @@ class CodeEditorApp:
         }
         
         # 工具栏项目（移除文件资源管理器和终端相关功能）
+        # 使用语言包键，将在创建按钮时转换为对应语言的文本
         self.toolbar_items = [
-            ("新建", './Resources/new.png', self.new_file_dialog),
-            ("打开", './Resources/open.png', self.open_file),
-            ("保存", './Resources/save.png', self.save_file),
-            ("小源", './Resources/ai.png', self.toggle_ai_panel),
-            ("运行", './Resources/run.png', self.run_current_file),
-            ("Python专区", './Resources/open.png', self.show_python_zone),
-            ("关于", './Resources/info.png', self.show_about)
+            ('new', './Resources/new.png', self.new_file_dialog),
+            ('open', './Resources/open.png', self.open_file),
+            ('save', './Resources/save.png', self.save_file),
+            ('ai_panel', './Resources/ai.png', self.toggle_ai_panel),
+            ('run', './Resources/run.png', self.run_current_file),
+            ('python_zone', './Resources/open.png', self.show_python_zone),
+            ('language', './Resources/settings.png', self.show_language_dialog),
+            ('about', './Resources/info.png', self.show_about)
         ]
         
         # 初始化后端和API
@@ -127,35 +739,35 @@ class CodeEditorApp:
         file_menu = tk.Menu(self.menu_bar, tearoff=0,
                           bg=self.vscode_theme['toolbar'],
                           fg=self.vscode_theme['foreground'])
-        file_menu.add_command(label="新建", command=self.new_file_dialog, accelerator="Ctrl+N")
-        file_menu.add_command(label="打开", command=self.open_file, accelerator="Ctrl+O")
-        file_menu.add_command(label="保存", command=self.save_file, accelerator="Ctrl+S")
-        file_menu.add_command(label="另存为...", command=self.save_file_as)
+        file_menu.add_command(label=self.lang_pack[self.current_language]['new'], command=self.new_file_dialog, accelerator="Ctrl+N")
+        file_menu.add_command(label=self.lang_pack[self.current_language]['open'], command=self.open_file, accelerator="Ctrl+O")
+        file_menu.add_command(label=self.lang_pack[self.current_language]['save'], command=self.save_file, accelerator="Ctrl+S")
+        file_menu.add_command(label=self.lang_pack[self.current_language]['save_as'] + "...", command=self.save_file_as)
         file_menu.add_separator()
-        file_menu.add_command(label="退出", command=self.root.quit)
-        self.menu_bar.add_cascade(label="文件", menu=file_menu)
+        file_menu.add_command(label=self.lang_pack[self.current_language]['exit'], command=self.root.quit)
+        self.menu_bar.add_cascade(label=self.lang_pack[self.current_language]['file'], menu=file_menu)
         
         # 编辑菜单
         edit_menu = tk.Menu(self.menu_bar, tearoff=0,
                           bg=self.vscode_theme['toolbar'],
                           fg=self.vscode_theme['foreground'])
-        edit_menu.add_command(label="撤销", command=lambda: self.code_text.edit_undo(), accelerator="Ctrl+Z")
-        edit_menu.add_command(label="重做", command=lambda: self.code_text.edit_redo(), accelerator="Ctrl+Y")
+        edit_menu.add_command(label=self.lang_pack[self.current_language]['undo'], command=lambda: self.code_text.edit_undo(), accelerator="Ctrl+Z")
+        edit_menu.add_command(label=self.lang_pack[self.current_language]['redo'], command=lambda: self.code_text.edit_redo(), accelerator="Ctrl+Y")
         edit_menu.add_separator()
-        edit_menu.add_command(label="复制", command=self.copy_text, accelerator="Ctrl+C")
-        edit_menu.add_command(label="粘贴", command=self.paste_text, accelerator="Ctrl+V")
-        edit_menu.add_command(label="剪切", command=self.cut_text, accelerator="Ctrl+X")
+        edit_menu.add_command(label=self.lang_pack[self.current_language]['copy'], command=self.copy_text, accelerator="Ctrl+C")
+        edit_menu.add_command(label=self.lang_pack[self.current_language]['paste'], command=self.paste_text, accelerator="Ctrl+V")
+        edit_menu.add_command(label=self.lang_pack[self.current_language]['cut'], command=self.cut_text, accelerator="Ctrl+X")
         edit_menu.add_separator()
-        edit_menu.add_command(label="全选", command=self.select_all, accelerator="Ctrl+A")
-        self.menu_bar.add_cascade(label="编辑", menu=edit_menu)
+        edit_menu.add_command(label=self.lang_pack[self.current_language]['select_all'], command=self.select_all, accelerator="Ctrl+A")
+        self.menu_bar.add_cascade(label=self.lang_pack[self.current_language]['edit'], menu=edit_menu)
         
         # 运行菜单
         run_menu = tk.Menu(self.menu_bar, tearoff=0,
                          bg=self.vscode_theme['toolbar'],
                          fg=self.vscode_theme['foreground'])
-        run_menu.add_command(label="运行当前文件", command=self.run_current_file, accelerator="F5")
-        run_menu.add_command(label="运行选中代码", command=self.run_selected_code)
-        self.menu_bar.add_cascade(label="运行", menu=run_menu)
+        run_menu.add_command(label=self.lang_pack[self.current_language]['run'] + "当前文件", command=self.run_current_file, accelerator="F5")
+        run_menu.add_command(label=self.lang_pack[self.current_language]['run'] + "选中代码", command=self.run_selected_code)
+        self.menu_bar.add_cascade(label=self.lang_pack[self.current_language]['run'], menu=run_menu)
         
         # Python专区菜单
         python_menu = tk.Menu(self.menu_bar, tearoff=0,
@@ -169,14 +781,23 @@ class CodeEditorApp:
                           bg=self.vscode_theme['toolbar'],
                           fg=self.vscode_theme['foreground'])
         view_menu.add_command(label="切换AI面板", command=self.toggle_ai_panel)
-        self.menu_bar.add_cascade(label="视图", menu=view_menu)
+        self.menu_bar.add_cascade(label=self.lang_pack[self.current_language]['view'], menu=view_menu)
+        
+        # 语言菜单
+        language_menu = tk.Menu(self.menu_bar, tearoff=0,
+                              bg=self.vscode_theme['toolbar'],
+                              fg=self.vscode_theme['foreground'])
+        language_menu.add_command(label=self.lang_pack[self.current_language]['simplified_chinese'], command=lambda: self.change_language('zh-CN'))
+        language_menu.add_command(label=self.lang_pack[self.current_language]['traditional_chinese'], command=lambda: self.change_language('zh-TW'))
+        language_menu.add_command(label=self.lang_pack[self.current_language]['english'], command=lambda: self.change_language('en-US'))
+        self.menu_bar.add_cascade(label=self.lang_pack[self.current_language]['language'], menu=language_menu)
         
         # 帮助菜单
         help_menu = tk.Menu(self.menu_bar, tearoff=0,
                           bg=self.vscode_theme['toolbar'],
                           fg=self.vscode_theme['foreground'])
-        help_menu.add_command(label="关于", command=self.show_about)
-        self.menu_bar.add_cascade(label="帮助", menu=help_menu)
+        help_menu.add_command(label=self.lang_pack[self.current_language]['about'], command=self.show_about)
+        self.menu_bar.add_cascade(label=self.lang_pack[self.current_language]['help'], menu=help_menu)
         
         # 绑定快捷键
         self.root.bind("<Control-n>", lambda e: self.new_file_dialog())
@@ -245,28 +866,25 @@ class CodeEditorApp:
             # 应用VS Code主题到主窗口
             self.root.configure(background=self.vscode_theme['background'])
             
-            # 创建顶部菜单栏
-            # self.create_menu_bar()  # 移除菜单栏
-            
             # 创建主布局容器
             main_frame = tk.Frame(self.root, 
                                bg=self.vscode_theme['background'])
             main_frame.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
             
             # 创建内容区域分隔
-            content_paned = tk.PanedWindow(main_frame, 
+            self.content_paned = tk.PanedWindow(main_frame, 
                                          orient=tk.HORIZONTAL, 
                                          sashrelief=tk.RAISED, 
                                          sashwidth=4,
                                          bg=self.vscode_theme['background'],
                                          bd=0,
                                          relief=tk.FLAT)
-            content_paned.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
+            self.content_paned.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
             
             # 中间编辑器区域
-            editor_container = tk.Frame(content_paned, 
+            editor_container = tk.Frame(self.content_paned, 
                                      bg=self.vscode_theme['background'])
-            content_paned.add(editor_container, stretch='always')
+            self.content_paned.add(editor_container, stretch='always')
             
             # 移除标签栏功能
             
@@ -274,11 +892,11 @@ class CodeEditorApp:
             self.setup_editor_area(editor_container)
             
             # 右侧AI面板
-            self.setup_ai_panel(content_paned)
+            self.setup_ai_panel(self.content_paned)
             
             # 设置初始分割比例 - 一半编辑器，一半小源
             self.root.update()
-            content_paned.sash_place(0, int(content_paned.winfo_width() * 0.5), 0)
+            self.content_paned.sash_place(0, int(self.content_paned.winfo_width() * 0.5), 0)
             
             # 创建状态栏
             self.create_status_bar()
@@ -322,23 +940,28 @@ class CodeEditorApp:
         startup_frame.pack(fill=tk.BOTH, expand=True)
         
         # VS Code标题
-        title_label = tk.Label(startup_frame, text="聚源仓", font=('Consolas', 24, 'bold'), fg="#000000", bg="#FFFFFF")
+        title_label = tk.Label(startup_frame, text=self.lang_pack[self.current_language].get('app_title', 'JuYuanCang'), font=('Consolas', 24, 'bold'), fg="#000000", bg="#FFFFFF")
         title_label.pack(pady=(100, 10))
-        
-        subtitle_label = tk.Label(startup_frame, text="万物聚源 AI共生", font=('Consolas', 14), fg="#666666", bg="#FFFFFF")
-        subtitle_label.pack(pady=(0, 50))
         
         # 启动选项列表
         options_frame = tk.Frame(startup_frame, bg="#FFFFFF")
         options_frame.pack()
         
         # 新建文件
-        new_file_btn = tk.Button(options_frame, text="新建文件...", font=('Consolas', 12), fg="#0066CC", bg="#FFFFFF",
+        if self.current_language == 'zh-CN' or self.current_language == 'zh-TW':
+            new_text = self.lang_pack[self.current_language]['new'] + "文件..."
+        else:
+            new_text = self.lang_pack[self.current_language]['new'] + " File..."
+        new_file_btn = tk.Button(options_frame, text=new_text, font=('Consolas', 12), fg="#0066CC", bg="#FFFFFF",
                                  relief=tk.FLAT, anchor=tk.W, width=25, command=self.new_file_from_startup)
         new_file_btn.pack(fill=tk.X, pady=(5, 5))
         
         # 打开文件
-        open_file_btn = tk.Button(options_frame, text="打开文件...", font=('Consolas', 12), fg="#0066CC", bg="#FFFFFF",
+        if self.current_language == 'zh-CN' or self.current_language == 'zh-TW':
+            open_text = self.lang_pack[self.current_language]['open'] + "文件..."
+        else:
+            open_text = self.lang_pack[self.current_language]['open'] + " File..."
+        open_file_btn = tk.Button(options_frame, text=open_text, font=('Consolas', 12), fg="#0066CC", bg="#FFFFFF",
                                  relief=tk.FLAT, anchor=tk.W, width=25, command=self.open_file_from_startup)
         open_file_btn.pack(fill=tk.X, pady=(5, 5))
             
@@ -388,9 +1011,12 @@ class CodeEditorApp:
             except Exception as e:
                 print(f"加载logo图片失败: {e}")
                 
-        for name, icon, command in self.toolbar_items:
+        for key, icon, command in self.toolbar_items:
             try:
-                if name == "Python专区":
+                # 获取当前语言对应的按钮文本
+                name = self.lang_pack[self.current_language].get(key, key)
+                
+                if key == 'python_zone':
                     if not self.current_file or not self.current_file.endswith('.py'):
                         continue
                 if icon is not None and os.path.exists(icon):
@@ -410,7 +1036,8 @@ class CodeEditorApp:
                               activebackground=self.vscode_theme['button_hover'],
                               activeforeground=self.vscode_theme['foreground']).pack(side=tk.LEFT, padx=2, pady=2)
             except Exception as e:
-                print(f"加载工具栏按钮失败 {name}: {e}")
+                print(f"加载工具栏按钮失败 {key}: {e}")
+                name = self.lang_pack[self.current_language].get(key, key)
                 tk.Button(self.toolbar, text=name, command=command, font=('Consolas', 10),
                           relief='flat',
                           bg=self.vscode_theme['toolbar'],
@@ -765,7 +1392,7 @@ class CodeEditorApp:
         self.file_type_label.pack(side=tk.LEFT, padx=10, pady=5)
                 
         # 右侧信息：版本号
-        self.version_label = tk.Label(self.status_bar, text="聚源仓 Version 1.0.8", font=('Consolas', 9),
+        self.version_label = tk.Label(self.status_bar, text=self.lang_pack[self.current_language]['version'], font=('Consolas', 9),
                                    bg=self.vscode_theme['toolbar'],
                                    fg=self.vscode_theme['foreground'])
         self.version_label.pack(side=tk.RIGHT, padx=10, pady=5)
@@ -774,7 +1401,7 @@ class CodeEditorApp:
         """文件另存为"""
         file_path = filedialog.asksaveasfilename(
             defaultextension=".txt",
-            filetypes=[("Python文件", "*.py"), ("HTML文件", "*.html"), ("Markdown文件", "*.md"), ("文本文件", "*.txt"), ("所有文件", "*.*")]
+            filetypes=[("Python", "*.py"), ("HTML", "*.html"), ("Markdown", "*.md"), ("TXT", "*.txt"), ("所有文件", "*.*")]
         )
         
         if file_path:
@@ -785,16 +1412,16 @@ class CodeEditorApp:
     def setup_ai_panel(self, parent):
         """设置右侧AI面板"""
         # 创建主AI面板容器
-        self.ai_panel = tk.Frame(parent,
+        ai_panel = tk.Frame(parent,
                               bg=self.vscode_theme['panel_bg'],
                               bd=1,
                               relief=tk.SOLID)
         
         # AI面板标题
-        ai_header = ttk.Frame(self.ai_panel)
+        ai_header = ttk.Frame(ai_panel)
         ai_header.pack(fill=tk.X, padx=10, pady=10)
         
-        tk.Label(ai_header, text="小源\nVersion1.0.8", font=('Consolas', 14, 'bold'),
+        tk.Label(ai_header, text=self.lang_pack[self.current_language]['ai_version'], font=('Consolas', 14, 'bold'),
                 bg=self.vscode_theme['panel_bg'],
                 fg=self.vscode_theme['foreground']).pack()
         
@@ -803,7 +1430,7 @@ class CodeEditorApp:
         self.toggle_ai_btn.pack(side=tk.RIGHT)
         
         # 聊天区域 - 占据大部分空间
-        chat_frame = ttk.Frame(self.ai_panel)
+        chat_frame = ttk.Frame(ai_panel)
         chat_frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=10)
         
         # 聊天历史显示 - 占据主要区域
@@ -830,11 +1457,12 @@ class CodeEditorApp:
         self.quick_chat_input.pack(fill=tk.X, padx=(0, 5), side=tk.LEFT, expand=True)
         self.quick_chat_input.bind("<Return>", self.send_quick_chat)
         
-        send_btn = ttk.Button(input_frame, text="发送", command=self.send_quick_chat)
+        send_btn = ttk.Button(input_frame, text=self.lang_pack[self.current_language].get('send', '发送'), command=self.send_quick_chat)
         send_btn.pack(side=tk.RIGHT)
         
         # 显示欢迎消息
-        welcome_msg = """欢迎使用小源！
+        if self.current_language == 'zh-CN':
+            welcome_msg = """欢迎使用小源！
 
 我可以帮助您：
 • 深度分析代码质量和性能
@@ -850,10 +1478,50 @@ class CodeEditorApp:
 • 自动生成和编译代码，直到正常工作（新增功能）
 
 请描述您的问题或需要帮助的代码部分。"""
-        self.add_chat_message("小源", welcome_msg)
+            ai_name = "小源"
+        elif self.current_language == 'zh-TW':
+            welcome_msg = """歡迎使用小源！
+
+我可以幫助您：
+• 深度分析代碼質量和性能
+• 提供專業的優化建議
+• 詳細解釋代碼邏輯
+• 除錯和修復問題
+• 進行代碼審查
+• 生成HTML、CSS、JavaScript代碼
+• 一鍵打包Python程序為exe
+• 一鍵安裝第三方庫
+• 打開系統終端
+• 設定主備雙API密鑰（新增功能）
+• 自動生成和編譯代碼，直到正常工作（新增功能）
+
+請描述您的問題或需要幫助的代碼部分。"""
+            ai_name = "小源"
+        else:  # en-US
+            welcome_msg = """Welcome to XiaoYuan!
+
+I can help you with:
+• Deep analysis of code quality and performance
+• Professional optimization suggestions
+• Detailed code logic explanations
+• Debugging and fixing issues
+• Code review
+• Generating HTML, CSS, JavaScript code
+• One-click packaging of Python programs to exe
+• One-click installation of third-party libraries
+• Opening system terminal
+• Setting up primary and backup API keys (new feature)
+• Automatically generating and compiling code until it works normally (new feature)
+
+Please describe your problem or the code section you need help with."""
+            ai_name = "XiaoYuan"
+        self.add_chat_message(ai_name, welcome_msg)
         
         # 将AI面板添加到父容器，设置为可拉伸
-        parent.add(self.ai_panel, stretch='always')
+        parent.add(ai_panel, stretch='always')
+        
+        # 更新引用
+        self.ai_panel = ai_panel
 
     def setup_api_dialog(self):
         """打开API设置对话框"""
@@ -946,9 +1614,14 @@ class CodeEditorApp:
 
     def show_welcome_message(self):
         """显示欢迎消息"""
-        # 只有当code_text组件存在时才显示欢迎消息
+        # 只有当code_text组件存在且仍然有效时才显示欢迎消息
         if hasattr(self, 'code_text') and self.code_text is not None:
-            welcome_code = '''# 欢迎使用聚源仓 AI IDE！
+            try:
+                # 检查code_text是否仍然是一个有效的Tkinter组件
+                self.code_text.winfo_exists()
+                
+                if self.current_language == 'zh-CN':
+                    welcome_code = '''# 欢迎使用聚源仓 AI IDE！
 
 # 这是一个智能代码编辑器，支持：
 # • Python、HTML、Markdown等多种语言
@@ -962,10 +1635,45 @@ class CodeEditorApp:
 # • 主备双API支持
 
 # 开始编辑您的代码或与小源AI助手交流！
-'''        
-            self.code_text.delete(1.0, tk.END)
-            self.code_text.insert(1.0, welcome_code)
-            self.apply_syntax_highlighting()
+'''
+                elif self.current_language == 'zh-TW':
+                    welcome_code = '''# 歡迎使用聚源倉 AI IDE！
+
+# 這是一個智能代碼編輯器，支持：
+# • Python、HTML、Markdown等多種語言
+# • AI智能代碼分析和生成
+# • 語法高亮顯示
+# • 一鍵運行代碼
+# • 一鍵打包為exe文件
+# • 一鍵安裝第三方庫
+# • 打開系統終端
+# • 右鍵菜單操作
+# • 主備雙API支持
+
+# 開始編輯您的代碼或與小源AI助手交流！
+'''
+                else:  # en-US
+                    welcome_code = '''# Welcome to Juyuan Warehouse AI IDE!
+
+# This is an intelligent code editor that supports:
+# • Multiple languages including Python, HTML, Markdown
+# • AI intelligent code analysis and generation
+# • Syntax highlighting
+# • One-click code running
+# • One-click packaging to exe files
+# • One-click third-party library installation
+# • Opening system terminal
+# • Right-click menu operations
+# • Primary and backup dual API support
+
+# Start editing your code or chat with XiaoYuan AI assistant!
+'''
+                self.code_text.delete(1.0, tk.END)
+                self.code_text.insert(1.0, welcome_code)
+                self.apply_syntax_highlighting()
+            except tk.TclError:
+                # code_text已经被销毁，忽略错误
+                pass
 
     def on_code_change(self, event=None):
         """当代码内容改变时触发的函数"""
@@ -1331,7 +2039,7 @@ class CodeEditorApp:
     def show_python_zone(self):
         """打开Python专区子窗口"""
         dialog = tk.Toplevel(self.root)
-        dialog.title("Python专区")
+        dialog.title(self.lang_pack[self.current_language]['python_zone'])
         dialog.geometry("600x500")
         dialog.resizable(False, False)
         dialog.iconbitmap("./Resources/app.ico")
@@ -1340,20 +2048,20 @@ class CodeEditorApp:
         main_frame = ttk.Frame(dialog, padding=20)
         main_frame.pack(fill=tk.BOTH, expand=True)
         
-        tk.Label(main_frame, text="Python专区", font=('等线', 18, 'bold')).pack(pady=10)
+        tk.Label(main_frame, text=self.lang_pack[self.current_language]['python_zone'], font=('等线', 18, 'bold')).pack(pady=10)
         
         button_frame = ttk.Frame(main_frame)
         button_frame.pack(pady=20)
         
-        ttk.Button(button_frame, text="打包为EXE", command=lambda: [dialog.destroy(), self.package_to_exe()], 
+        ttk.Button(button_frame, text=self.lang_pack[self.current_language]['package_to_exe'], command=lambda: [dialog.destroy(), self.package_to_exe()], 
                   width=20).pack(pady=10, ipadx=10, ipady=5)
-        ttk.Button(button_frame, text="安装第三方库", command=lambda: [dialog.destroy(), self.install_library_dialog()], 
+        ttk.Button(button_frame, text=self.lang_pack[self.current_language]['install_library'], command=lambda: [dialog.destroy(), self.install_library_dialog()], 
                   width=20).pack(pady=10, ipadx=10, ipady=5)
         
-        info_frame = ttk.LabelFrame(main_frame, text="功能说明", padding=10)
+        info_frame = ttk.LabelFrame(main_frame, text=self.lang_pack[self.current_language]['feature_description'], padding=10)
         info_frame.pack(fill=tk.BOTH, expand=True, pady=10)
         
-        info_text = "打包为EXE：将Python文件打包成独立的可执行文件，无需安装Python环境即可运行。\n\n安装第三方库：快速安装Python第三方库，支持批量安装多个库。"
+        info_text = f"{self.lang_pack[self.current_language]['package_to_exe']}：{self.lang_pack[self.current_language]['package_to_exe_description']}\n\n{self.lang_pack[self.current_language]['install_library']}：{self.lang_pack[self.current_language]['install_library_description']}"
         tk.Label(info_frame, text=info_text, font=('等线', 10), justify=tk.LEFT, wraplength=550).pack(anchor='w')
 
     # === 新增功能：打开系统终端 ===
@@ -2061,7 +2769,7 @@ class CodeEditorApp:
 
     def show_about(self):
         dialog = tk.Toplevel(self.root)
-        dialog.title("关于")
+        dialog.title(self.lang_pack[self.current_language]['about'])
         dialog.geometry("550x400")
         dialog.iconbitmap("./Resources/app.ico")
         dialog.resizable(False,False)
@@ -2070,7 +2778,7 @@ class CodeEditorApp:
         main_frame = ttk.Frame(dialog, padding=20)
         main_frame.pack(fill=tk.BOTH, expand=True)
         
-        tk.Label(main_frame, text="Python聚源仓项目，是一款AI IDE，由骏骏爱编程开发，其\n他人辅助帮忙开发，具有AI分析代码，AI优化代码，AI上下\n文理解等功能，完全免费，完全免费开源。\n官网：https://www.juyuancang.cn\n反馈邮箱：junjunloveprogramming@juyuancang.cn\n当前版本：1.0.8", font=('等线', 12)).pack(pady=10)
+        tk.Label(main_frame, text=self.lang_pack[self.current_language]['about_text'], font=('等线', 12)).pack(pady=10)
 
         button_frame = ttk.Frame(main_frame)
         button_frame.pack(pady=10)
@@ -2238,10 +2946,147 @@ class CodeEditorApp:
         resized_image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
         return resized_image
 
-    def safe_close(self):
-        """安全关闭应用程序"""
+    def show_language_dialog(self):
+        """显示语言选择对话框"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title(self.lang_pack[self.current_language]['language'])
+        dialog.geometry("300x400")
+        dialog.iconbitmap("./Resources/app.ico")
+        dialog.resizable(False, False)
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        main_frame = ttk.Frame(dialog, padding=20)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        title_label = tk.Label(main_frame, text=self.lang_pack[self.current_language]['language'], 
+                             font=('Consolas', 14, 'bold'),
+                             bg=self.vscode_theme['background'],
+                             fg=self.vscode_theme['foreground'])
+        title_label.pack(pady=(0, 20))
+        
+        # 语言选择按钮
+        for lang_code, lang_info in self.languages.items():
+            lang_name = lang_info['name']
+            btn = tk.Button(main_frame, text=lang_name, 
+                          font=('Consolas', 12),
+                          bg=self.vscode_theme['toolbar'],
+                          fg=self.vscode_theme['foreground'],
+                          activebackground=self.vscode_theme['button_hover'],
+                          activeforeground=self.vscode_theme['foreground'],
+                          relief='flat',
+                          command=lambda code=lang_code: [self.change_language(code), dialog.destroy()],
+                          width=20)
+            btn.pack(pady=5)
+        
+        # 当前语言指示
+        current_lang_label = tk.Label(main_frame, 
+                                   text=f"当前: {self.languages[self.current_language]['name']}",
+                                   font=('Consolas', 10),
+                                   bg=self.vscode_theme['background'],
+                                   fg=self.vscode_theme['foreground'])
+        current_lang_label.pack(pady=(20, 0))
+
+    def load_language_config(self):
+        """从配置文件读取语言设置"""
         try:
-            # 如果有未保存的更改，提示保存
+            config_file = 'language_config.json'
+            if os.path.exists(config_file):
+                with open(config_file, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                    language = config.get('language', 'zh-CN')
+                    
+                    # 兼容不同的语言代码格式（zh_CN -> zh-CN）
+                    language_mapping = {
+                        'zh_CN': 'zh-CN',
+                        'zh_TW': 'zh-TW',
+                        'en_US': 'en-US'
+                    }
+                    
+                    if language in language_mapping:
+                        language = language_mapping[language]
+                    
+                    if language in self.languages:
+                        return language
+        except Exception as e:
+            print(f"读取语言配置失败: {e}")
+        return 'zh-CN'
+
+    def save_language_config(self, language_code):
+        """保存语言设置到配置文件"""
+        try:
+            config_file = 'language_config.json'
+            config = {'language': language_code}
+            with open(config_file, 'w', encoding='utf-8') as f:
+                json.dump(config, f, ensure_ascii=False, indent=2)
+            print(f"语言设置已保存: {language_code}")
+        except Exception as e:
+            print(f"保存语言配置失败: {e}")
+
+    def change_language(self, language_code):
+        """切换语言"""
+        if language_code in self.languages:
+            self.current_language = language_code
+            
+            # 保存语言设置到配置文件
+            self.save_language_config(language_code)
+            
+            # 1. 更新窗口标题
+            self.root.title(self.lang_pack[self.current_language]['app_title'])
+            
+            # 2. 更新状态栏版本信息
+            if hasattr(self, 'version_label'):
+                self.version_label.config(text=self.lang_pack[self.current_language]['version'])
+            
+            # 3. 不需要重新创建菜单栏
+            
+            # 4. 强制重新创建工具栏以更新语言
+            if hasattr(self, 'toolbar'):
+                for widget in self.toolbar.winfo_children():
+                    widget.destroy()
+                self.create_toolbar_buttons()
+            
+            # 5. 强制重新显示启动界面以更新语言
+            if hasattr(self, 'main_content_container'):
+                # 检查当前是否显示启动界面
+                for widget in self.main_content_container.winfo_children():
+                    widget.destroy()
+                # 重新显示启动界面
+                self.show_vscode_startup_screen()
+            
+            # 6. 更新AI面板
+            if hasattr(self, 'ai_panel') and hasattr(self, 'content_paned'):
+                # 保存AI面板的可见状态
+                was_visible = self.ai_panel.winfo_ismapped()
+                
+                # 从容器中移除AI面板
+                try:
+                    self.content_paned.remove(self.ai_panel)
+                except:
+                    pass
+                
+                # 重新创建AI面板
+                self.setup_ai_panel(self.content_paned)
+            
+            # 7. 更新编辑器欢迎消息
+            if hasattr(self, 'code_text') and self.code_text is not None:
+                self.show_welcome_message()
+            
+            # 8. 更新状态栏文件类型信息
+            if hasattr(self, 'file_type_label'):
+                if self.current_language == 'zh-CN':
+                    self.file_type_label.config(text="欢迎界面")
+                elif self.current_language == 'zh-TW':
+                    self.file_type_label.config(text="歡迎介面")
+                else:
+                    self.file_type_label.config(text="Welcome Screen")
+            
+            print(f"语言已切换为: {self.languages[language_code]['name']}")
+    
+    def safe_close(self):
+        """安全关闭应用"""
+        try:
+            # 在这里可以添加关闭前的清理操作
             if self.current_file:
                 # 这里可以添加检查文件是否已修改的逻辑
                 pass
